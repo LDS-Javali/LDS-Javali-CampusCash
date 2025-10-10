@@ -80,5 +80,9 @@ Pretende-se desenvolver um sistema para estimular o reconhecimento do mérito es
 
 ## Diagrama de Classe
 
+![LABS-LAB03-Diagrama-de-classes]()
+
+
+
 ## Instruções de utilização
 Assim que a primeira versão do sistema estiver disponível, deverá complementar com as instruções de utilização. Descreva como instalar eventuais dependências e como executar a aplicação.
