@@ -80,7 +80,7 @@ Pretende-se desenvolver um sistema para estimular o reconhecimento do mérito es
 
 ## Diagrama de Classe
 
-![LABS-LAB03-Diagrama-de-classes]()
+![LABS-LAB03-Diagrama-de-classes](project/img/diagrama-de-classes-lab03.jpg)
 
 
 
