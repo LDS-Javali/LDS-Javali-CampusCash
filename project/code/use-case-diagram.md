@@ -1,99 +1,44 @@
 ```
 @startuml
+left to right direction
 
-skinparam classAttributeIconSize 0
+actor Aluno
+actor Professor
 
-class Usuario {
-  + nome: String
-  + email: String
-  + senha: String
-  + autenticar(): Boolean
+rectangle "Sistema de Moeda Estudantil" {
+  usecase "Cadastrar Aluno" as UC1
+  usecase "Consultar Extrato" as UC2
+  usecase "Trocar Moedas por vantagens" as UC3
+  usecase "Enviar notificações por email" as UC4
+  
+  usecase "Distribuir Moedas" as UC5
+  usecase "Receber moedas para distribuição" as UC6
+
+  usecase "Cadastrar Empresa Parceira" as UC8
+  usecase "Cadastrar Vantagens" as UC9
 }
 
-class Aluno extends Usuario {
-  + cpf: String
-  + rg: String
-  + endereco: String
-  + instituicao: InstituicaoEnsino
-  + curso: String
-  + saldoMoedas: int
-  + transacoes: List<Transacao>
-  - consultarExtrato(): List<Transacao>
-  - trocarMoedas(vantagem: Vantagem): void 
-  - receberMoedas(valor: int, origem: Professor, mensagem: String): void
-}
+actor "Empresa Parceira" as Empresa
 
-class Professor extends Usuario {
-  + matricula: String
-  + departamento: Departamento
-  + instituicao: InstituicaoEnsino
-  + saldoMoedas: int
-  + transacoes: List<Transacao>
-  - distribuirMoedas(aluno: Aluno, valor: int, mensagem: String): void
-  - consultarExtrato(): List<Transacao>
-}
+' -- Relações do Aluno --
+Aluno -- (UC1)
+Aluno -- (UC2)
+Aluno -- (UC3)
 
-class EmpresaParceira extends Usuario {
-  + nome: String
-  + cnpj: String
-  + email: String
-  + senha: String
-  + vantagens: List<Vantagem>
-  + cadastrarVantagem(vantagem: Vantagem): void
-  ' O método foi ajustado para não depender mais de Cupom
-  + receberNotificacao(aluno: Aluno, vantagem: Vantagem): void
-}
-
-class Vantagem {
-  + titulo: String
-  + descricao: String
-  + foto: String
-  + custoMoedas: int
-  + empresa: EmpresaParceira
-}
-
-class InstituicaoDeEnsino {
-  + nome: String
-  + cnpj: String
-  + endereco: String
-}
-
-class Transacao {
-  - data: DateTime
-  - valor: int
-  - tipo: Tipo
-  - descricao: String
-  + remetente: Usuario
-  + destinatario: Usuario
-}
-
-enum Tipo {
-  ENVIO
-  RECEBIMENTO
-  TROCA
-}
-
-enum Departamento {
-  CIENCIAS_EXATAS
-  CIENCIAS_HUMANAS
-  CIENCIAS_BIOLOGICAS
-  ENGENHARIA
-  ARTES
-  TECNOLOGIA
-}
+' -- Relações do Professor --
+Professor -- (UC2)
+Professor -- (UC5)
+Professor -- (UC6)
 
 
-' --- Relacionamentos ---
+' -- Relações da Empresa Parceira --
+(UC8) -- Empresa
+(UC9) -- Empresa
 
-' Uma transação deve ter exatamente 2 usuários (remetente e destinatário)
-Usuario "2" -- "1..*" Transacao
-
-' Um aluno pode possuir várias vantagens (que eram os cupons)
-Aluno "1" -- "0..*" Vantagem
-
-Aluno "1" -- "1" InstituicaoDeEnsino
-Professor "1..*" -- "1" InstituicaoDeEnsino
-EmpresaParceira "1" -- "0..*" Vantagem
+' -- Relações de Inclusão --
+(UC5) .> (UC4) : <<include>>
+(UC3) .> (UC4) : <<include>>
 
 @enduml
+
 ```
