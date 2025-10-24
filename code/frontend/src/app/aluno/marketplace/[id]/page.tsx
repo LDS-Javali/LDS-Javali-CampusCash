@@ -38,7 +38,7 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
   const [isResgatando, setIsResgatando] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // Mock data - substituir por dados reais da API
+  
   const vantagem = {
     id: params.id,
     titulo: "Desconto 30% Livraria Central",

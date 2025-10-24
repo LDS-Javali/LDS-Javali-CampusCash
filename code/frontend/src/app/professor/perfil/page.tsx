@@ -37,7 +37,7 @@ export default function ProfessorPerfilPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Mock data - substituir por dados reais da API
+  
   const [perfil, setPerfil] = useState({
     nome: "Prof. Dr. Carlos Eduardo Silva",
     email: "carlos.silva@puc-rio.br",

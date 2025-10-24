@@ -1,98 +1,78 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { 
-  StatCard, 
-  
+import {
+  StatCard,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button
+  Button,
 } from "@/components/design-system";
-import { 
-  TrendingUp, 
-  Gift, 
-  Users, 
+import {
+  TrendingUp,
+  Gift,
+  Users,
   ArrowRight,
   Building2,
   Calendar,
   ShoppingBag,
-  BarChart3
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import { useCompanyStatistics, useCompanyRewards } from "@/hooks";
+import { DashboardSkeleton } from "@/components/feedback/loading-states";
 
 export default function EmpresaDashboard() {
-  // Mock data - substituir por dados reais da API
+  const { data: statistics, isLoading: statsLoading } = useCompanyStatistics();
+  const { data: rewards, isLoading: rewardsLoading } = useCompanyRewards();
+
+  const isLoading = statsLoading || rewardsLoading;
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const vantagensAtivas = rewards?.filter((r) => r.active).length || 0;
+  const resgatesRecentes: any[] = [];
+  const vantagensMaisPopulares = rewards?.slice(0, 3) || [];
+
   const stats = [
     {
       title: "Vantagens Ativas",
-      value: "12",
-      trend: { value: 2, label: "este mês" },
+      value: vantagensAtivas.toString(),
+      trend: { value: 0, label: "este mês" },
       color: "purple" as const,
       icon: Gift,
     },
     {
       title: "Resgates Este Mês",
-      value: "47",
-      trend: { value: 15, label: "vs mês anterior" },
+      value: statistics?.totalValidations?.toString() || "0",
+      trend: { value: 0, label: "vs mês anterior" },
       color: "green" as const,
       icon: TrendingUp,
     },
     {
       title: "Receita em Moedas",
-      value: "8.5K",
-      trend: { value: 8, label: "este mês" },
+      value: "0",
+      trend: { value: 0, label: "este mês" },
       color: "gold" as const,
       icon: BarChart3,
     },
     {
       title: "Alunos Únicos",
-      value: "156",
-      trend: { value: 12, label: "novos este mês" },
+      value: "0",
+      trend: { value: 0, label: "novos este mês" },
       color: "blue" as const,
       icon: Users,
     },
   ];
 
-  const resgatesRecentes = [
-    {
-      id: "1",
-      aluno: "João Silva Santos",
-      vantagem: "Desconto 30% Livraria Central",
-      data: new Date("2024-01-15T10:30:00"),
-      status: "usado",
-      valor: 200,
-    },
-    {
-      id: "2",
-      aluno: "Maria Santos Costa",
-      vantagem: "Almoço Grátis Restaurante",
-      data: new Date("2024-01-14T14:20:00"),
-      status: "pendente",
-      valor: 150,
-    },
-    {
-      id: "3",
-      aluno: "Pedro Costa Lima",
-      vantagem: "Desconto 20% Lanchonete",
-      data: new Date("2024-01-13T16:45:00"),
-      status: "usado",
-      valor: 100,
-    },
-  ];
-
-  const vantagensMaisPopulares = [
-    { nome: "Desconto 30% Livraria", resgates: 23, receita: 4600 },
-    { nome: "Almoço Grátis Restaurante", resgates: 18, receita: 2700 },
-    { nome: "Desconto 20% Lanchonete", resgates: 15, receita: 1500 },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -130,11 +110,7 @@ export default function EmpresaDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Resgates Recentes */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -165,15 +141,21 @@ export default function EmpresaDashboard() {
                       {resgate.aluno}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {resgate.data.toLocaleDateString("pt-BR")} às {resgate.data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {resgate.data.toLocaleDateString("pt-BR")} às{" "}
+                      {resgate.data.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className={`text-xs px-2 py-1 rounded-full ${
-                      resgate.status === "usado" 
-                        ? "bg-green-100 text-green-700" 
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}>
+                    <div
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        resgate.status === "usado"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
                       {resgate.status === "usado" ? "Usado" : "Pendente"}
                     </div>
                     <div className="text-sm font-semibold text-campus-gold-600 mt-1">
@@ -187,11 +169,7 @@ export default function EmpresaDashboard() {
         </motion.div>
 
         {/* Vantagens Mais Populares */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -210,7 +188,7 @@ export default function EmpresaDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-muted rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-campus-purple-500 to-campus-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${(vantagem.resgates / 25) * 100}%` }}
                       />
@@ -227,11 +205,7 @@ export default function EmpresaDashboard() {
       </div>
 
       {/* Informações Importantes */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -271,11 +245,7 @@ export default function EmpresaDashboard() {
       </motion.div>
 
       {/* Quick Actions */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle>Ações Rápidas</CardTitle>
@@ -289,19 +259,28 @@ export default function EmpresaDashboard() {
                 </Button>
               </Link>
               <Link href="/empresa/vantagens">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-2"
+                >
                   <Building2 className="h-6 w-6" />
                   <span>Gerenciar</span>
                 </Button>
               </Link>
               <Link href="/empresa/validar">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-2"
+                >
                   <Users className="h-6 w-6" />
                   <span>Validar Cupons</span>
                 </Button>
               </Link>
               <Link href="/empresa/historico">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-2"
+                >
                   <Calendar className="h-6 w-6" />
                   <span>Histórico</span>
                 </Button>

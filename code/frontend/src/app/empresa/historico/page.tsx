@@ -40,7 +40,7 @@ export default function HistoricoPage() {
     ordenacao: "mais-recente",
   });
 
-  // Mock data - substituir por dados reais da API
+  
   const transacoes = [
     {
       id: "1",

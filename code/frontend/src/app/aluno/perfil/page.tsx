@@ -35,7 +35,7 @@ export default function AlunoPerfilPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Mock data - substituir por dados reais da API
+  
   const [perfil, setPerfil] = useState({
     nome: "João Silva Santos",
     email: "joao.silva@email.com",

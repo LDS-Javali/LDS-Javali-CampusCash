@@ -38,7 +38,7 @@ export default function GerenciarVantagensPage() {
   const [filtroStatus, setFiltroStatus] = useState("todas");
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
-  // Mock data - substituir por dados reais da API
+  
   const vantagens = [
     {
       id: "1",

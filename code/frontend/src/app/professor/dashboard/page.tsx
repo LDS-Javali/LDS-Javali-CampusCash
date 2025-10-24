@@ -1,96 +1,86 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { 
-  CoinBadge, 
-  StatCard, 
-  TransactionItem, 
-  
+import {
+  CoinBadge,
+  StatCard,
+  TransactionItem,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button
+  Button,
 } from "@/components/design-system";
-import { 
-  Wallet, 
-  TrendingUp, 
-  Users, 
+import {
+  Wallet,
+  TrendingUp,
+  Users,
   ArrowRight,
   GraduationCap,
   Calendar,
-  Gift
+  Gift,
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import {
+  useProfessorBalance,
+  useProfessorStatistics,
+  useProfessorTransactions,
+} from "@/hooks";
+import { DashboardSkeleton } from "@/components/feedback/loading-states";
 
 export default function ProfessorDashboard() {
-  // Mock data - substituir por dados reais da API
-  const saldoMoedas = 850;
-  const proximaRecarga = new Date("2024-07-01");
-  const totalDistribuido = 1150;
-  const alunosReconhecidos = 24;
+  const { data: balance, isLoading: balanceLoading } = useProfessorBalance();
+  const { data: statistics, isLoading: statsLoading } =
+    useProfessorStatistics();
+  const { data: transactions, isLoading: transactionsLoading } =
+    useProfessorTransactions();
 
-  const distribuicoesRecentes = [
-    {
-      id: "1",
-      tipo: "recebimento" as const,
-      valor: 50,
-      descricao: "Excelente participação na aula de Matemática",
-      data: new Date("2024-01-15T10:30:00"),
-      nome: "João Silva",
-      saldoApos: 850,
-    },
-    {
-      id: "2", 
-      tipo: "recebimento" as const,
-      valor: 75,
-      descricao: "Boa apresentação do projeto",
-      data: new Date("2024-01-14T14:20:00"),
-      nome: "Maria Santos",
-      saldoApos: 900,
-    },
-    {
-      id: "3",
-      tipo: "recebimento" as const,
-      valor: 25,
-      descricao: "Pontualidade nas aulas",
-      data: new Date("2024-01-13T16:45:00"),
-      nome: "Pedro Costa",
-      saldoApos: 925,
-    },
-  ];
+  const isLoading = balanceLoading || statsLoading || transactionsLoading;
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const saldoMoedas = balance?.balance || 0;
+  const proximaRecarga = new Date();
+  const totalDistribuido = statistics?.totalCoins || 0;
+  const alunosReconhecidos = statistics?.totalStudents || 0;
+
+  const distribuicoesRecentes = transactions?.slice(0, 5) || [];
 
   const stats = [
     {
       title: "Total Distribuído",
-      value: "1.15K",
-      trend: { value: 12, label: "este semestre" },
+      value: totalDistribuido.toString(),
+      trend: { value: 0, label: "este semestre" },
       color: "green" as const,
       icon: TrendingUp,
     },
     {
       title: "Alunos Reconhecidos",
-      value: "24",
-      trend: { value: 8, label: "este mês" },
+      value: alunosReconhecidos.toString(),
+      trend: { value: 0, label: "este mês" },
       color: "purple" as const,
       icon: Users,
     },
     {
-      title: "Distribuições",
-      value: "47",
-      trend: { value: 15, label: "este mês" },
+      title: "Transações",
+      value: statistics?.totalTransactions?.toString() || "0",
+      trend: { value: 0, label: "este mês" },
       color: "blue" as const,
       icon: GraduationCap,
     },
   ];
 
-  const diasParaRecarga = Math.ceil((proximaRecarga.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const diasParaRecarga = Math.ceil(
+    (proximaRecarga.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -113,17 +103,19 @@ export default function ProfessorDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-2">Seu Saldo</h2>
-            <CoinBadge 
-              amount={saldoMoedas} 
-              variant="large" 
-              animated 
+            <CoinBadge
+              amount={saldoMoedas}
+              variant="large"
+              animated
               className="text-white"
             />
           </div>
           <div className="text-right">
             <p className="text-white/80 text-sm">Próxima recarga</p>
             <p className="text-white font-semibold">
-              {diasParaRecarga > 0 ? `Em ${diasParaRecarga} dias` : "Recarga disponível"}
+              {diasParaRecarga > 0
+                ? `Em ${diasParaRecarga} dias`
+                : "Recarga disponível"}
             </p>
             <p className="text-white/80 text-sm">
               {proximaRecarga.toLocaleDateString("pt-BR")}
@@ -157,11 +149,7 @@ export default function ProfessorDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Distribuições Recentes */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -192,7 +180,11 @@ export default function ProfessorDashboard() {
                       Para: {distribuicao.nome}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {distribuicao.data.toLocaleDateString("pt-BR")} às {distribuicao.data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {distribuicao.data.toLocaleDateString("pt-BR")} às{" "}
+                      {distribuicao.data.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                   <div className="text-right">
@@ -210,11 +202,7 @@ export default function ProfessorDashboard() {
         </motion.div>
 
         {/* Informações Importantes */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -228,7 +216,8 @@ export default function ProfessorDashboard() {
                   Recarga Semestral
                 </h4>
                 <p className="text-sm text-campus-blue-700 mb-2">
-                  Você recebe 1.000 moedas a cada semestre para distribuir aos seus alunos.
+                  Você recebe 1.000 moedas a cada semestre para distribuir aos
+                  seus alunos.
                 </p>
                 <p className="text-sm text-campus-blue-700">
                   Próxima recarga: {proximaRecarga.toLocaleDateString("pt-BR")}
@@ -252,8 +241,9 @@ export default function ProfessorDashboard() {
                   Impacto Positivo
                 </h4>
                 <p className="text-sm text-green-700">
-                  Você já reconheceu {alunosReconhecidos} alunos diferentes este semestre, 
-                  contribuindo para um ambiente acadêmico mais motivador!
+                  Você já reconheceu {alunosReconhecidos} alunos diferentes este
+                  semestre, contribuindo para um ambiente acadêmico mais
+                  motivador!
                 </p>
               </div>
             </CardContent>
@@ -262,11 +252,7 @@ export default function ProfessorDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle>Ações Rápidas</CardTitle>
@@ -280,13 +266,19 @@ export default function ProfessorDashboard() {
                 </Button>
               </Link>
               <Link href="/professor/extrato">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-2"
+                >
                   <Wallet className="h-6 w-6" />
                   <span>Ver Extrato</span>
                 </Button>
               </Link>
               <Link href="/professor/perfil">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-2"
+                >
                   <Users className="h-6 w-6" />
                   <span>Meu Perfil</span>
                 </Button>

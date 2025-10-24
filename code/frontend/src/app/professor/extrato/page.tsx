@@ -41,7 +41,7 @@ export default function ProfessorExtrato() {
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Mock data - substituir por dados reais da API
+  
   const distribuicoes = [
     {
       id: "1",

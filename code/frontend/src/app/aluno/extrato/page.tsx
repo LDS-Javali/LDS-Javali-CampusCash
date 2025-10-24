@@ -36,7 +36,7 @@ export default function AlunoExtrato() {
     busca: "",
   });
 
-  // Mock data - substituir por dados reais da API
+  
   const transacoes = [
     {
       id: "1",

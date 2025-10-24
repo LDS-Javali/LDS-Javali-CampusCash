@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { 
+import {
   Card,
   CardContent,
   CardHeader,
@@ -14,19 +14,21 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Badge
+  Badge,
 } from "@/components/design-system";
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   ShoppingBag,
   Gift,
   Building2,
   Star,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import { useRewards, useRedeemReward } from "@/hooks";
+import { MarketplaceSkeleton } from "@/components/feedback/loading-states";
 
 export default function MarketplacePage() {
   const [filtros, setFiltros] = useState({
@@ -38,46 +40,29 @@ export default function MarketplacePage() {
     ordenacao: "relevancia",
   });
 
-  // Mock data simplificado
-  const vantagens = [
-    {
-      id: "1",
-      titulo: "Desconto 30% Livraria Central",
-      descricao: "Desconto especial em todos os livros didáticos e literatura",
-      empresa: "Livraria Central",
-      empresaId: "livraria-central",
-      custoMoedas: 200,
-      categoria: "Educação",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: true,
-      avaliacao: 4.8,
-      resgates: 156,
-    },
-    {
-      id: "2",
-      titulo: "Almoço Grátis Restaurante Universitário",
-      descricao: "Refeição completa no restaurante universitário",
-      empresa: "Restaurante Universitário",
-      empresaId: "restaurante-uni",
-      custoMoedas: 150,
-      categoria: "Alimentação",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: true,
-      avaliacao: 4.9,
-      resgates: 234,
-    },
-  ];
+  const { data: vantagens, isLoading } = useRewards({
+    categoria: filtros.categoria !== "todas" ? filtros.categoria : undefined,
+    precoMin: filtros.precoMin ? Number(filtros.precoMin) : undefined,
+    precoMax: filtros.precoMax ? Number(filtros.precoMax) : undefined,
+    ordenacao: filtros.ordenacao as any,
+  });
+
+  const redeemMutation = useRedeemReward();
+
+  if (isLoading) {
+    return <MarketplaceSkeleton />;
+  }
 
   const categorias = [
     "todas",
     "Alimentação",
-    "Educação", 
+    "Educação",
     "Esportes",
     "Serviços",
     "Tecnologia",
     "Saúde",
     "Beleza",
-    "Entretenimento"
+    "Entretenimento",
   ];
 
   const empresas = [
@@ -87,11 +72,14 @@ export default function MarketplacePage() {
     "Universidade",
     "Academia Campus",
     "Lanchonete Central",
-    "Tech Academy"
+    "Tech Academy",
   ];
 
   const vantagensFiltradas = vantagens.filter((vantagem) => {
-    if (filtros.categoria !== "todas" && vantagem.categoria !== filtros.categoria) {
+    if (
+      filtros.categoria !== "todas" &&
+      vantagem.categoria !== filtros.categoria
+    ) {
       return false;
     }
     if (filtros.empresa !== "todas" && vantagem.empresa !== filtros.empresa) {
@@ -103,7 +91,10 @@ export default function MarketplacePage() {
     if (filtros.precoMax && vantagem.custoMoedas > parseInt(filtros.precoMax)) {
       return false;
     }
-    if (filtros.busca && !vantagem.titulo.toLowerCase().includes(filtros.busca.toLowerCase())) {
+    if (
+      filtros.busca &&
+      !vantagem.titulo.toLowerCase().includes(filtros.busca.toLowerCase())
+    ) {
       return false;
     }
     return vantagem.ativa;
@@ -125,6 +116,10 @@ export default function MarketplacePage() {
     }
   });
 
+  const handleRedeem = (rewardId: number) => {
+    redeemMutation.mutate(rewardId);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -142,11 +137,7 @@ export default function MarketplacePage() {
       </div>
 
       {/* Filtros */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -164,7 +155,9 @@ export default function MarketplacePage() {
                   <Input
                     placeholder="Nome da vantagem..."
                     value={filtros.busca}
-                    onChange={(e) => setFiltros(prev => ({ ...prev, busca: e.target.value }))}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, busca: e.target.value }))
+                    }
                     className="pl-10"
                   />
                 </div>
@@ -175,7 +168,9 @@ export default function MarketplacePage() {
                 <label className="text-sm font-medium">Categoria</label>
                 <Select
                   value={filtros.categoria}
-                  onValueChange={(value) => setFiltros(prev => ({ ...prev, categoria: value }))}
+                  onValueChange={(value) =>
+                    setFiltros((prev) => ({ ...prev, categoria: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -183,7 +178,9 @@ export default function MarketplacePage() {
                   <SelectContent>
                     {categorias.map((categoria) => (
                       <SelectItem key={categoria} value={categoria}>
-                        {categoria === "todas" ? "Todas as categorias" : categoria}
+                        {categoria === "todas"
+                          ? "Todas as categorias"
+                          : categoria}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -195,7 +192,9 @@ export default function MarketplacePage() {
                 <label className="text-sm font-medium">Empresa</label>
                 <Select
                   value={filtros.empresa}
-                  onValueChange={(value) => setFiltros(prev => ({ ...prev, empresa: value }))}
+                  onValueChange={(value) =>
+                    setFiltros((prev) => ({ ...prev, empresa: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -217,7 +216,12 @@ export default function MarketplacePage() {
                   type="number"
                   placeholder="0"
                   value={filtros.precoMin}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, precoMin: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      precoMin: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
@@ -228,7 +232,12 @@ export default function MarketplacePage() {
                   type="number"
                   placeholder="1000"
                   value={filtros.precoMax}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, precoMax: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      precoMax: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -239,7 +248,9 @@ export default function MarketplacePage() {
                 <label className="text-sm font-medium">Ordenar por:</label>
                 <Select
                   value={filtros.ordenacao}
-                  onValueChange={(value) => setFiltros(prev => ({ ...prev, ordenacao: value }))}
+                  onValueChange={(value) =>
+                    setFiltros((prev) => ({ ...prev, ordenacao: value }))
+                  }
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -248,8 +259,12 @@ export default function MarketplacePage() {
                     <SelectItem value="relevancia">Relevância</SelectItem>
                     <SelectItem value="menor-preco">Menor Preço</SelectItem>
                     <SelectItem value="maior-preco">Maior Preço</SelectItem>
-                    <SelectItem value="mais-avaliados">Mais Avaliados</SelectItem>
-                    <SelectItem value="mais-resgatados">Mais Resgatados</SelectItem>
+                    <SelectItem value="mais-avaliados">
+                      Mais Avaliados
+                    </SelectItem>
+                    <SelectItem value="mais-resgatados">
+                      Mais Resgatados
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -280,10 +295,12 @@ export default function MarketplacePage() {
                 </Badge>
                 <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur rounded-full px-2 py-1">
                   <Star className="h-3 w-3 fill-campus-gold-400 text-campus-gold-400" />
-                  <span className="text-xs font-medium">{vantagem.avaliacao}</span>
+                  <span className="text-xs font-medium">
+                    {vantagem.avaliacao}
+                  </span>
                 </div>
               </div>
-              
+
               <CardContent className="p-4 flex-1 flex flex-col">
                 <div className="space-y-3 flex-1 flex flex-col">
                   <div>
@@ -302,7 +319,9 @@ export default function MarketplacePage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 bg-campus-gold-100 text-campus-gold-700 px-3 py-1 rounded-full">
-                      <span className="text-sm font-semibold">{vantagem.custoMoedas}</span>
+                      <span className="text-sm font-semibold">
+                        {vantagem.custoMoedas}
+                      </span>
                       <span className="text-xs">moedas</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -310,9 +329,17 @@ export default function MarketplacePage() {
                     </div>
                   </div>
 
-                  <div className="mt-auto">
+                  <div className="mt-auto space-y-2">
+                    <Button
+                      className="w-full group-hover:bg-campus-purple-600 transition-colors"
+                      onClick={() => handleRedeem(vantagem.id)}
+                      disabled={redeemMutation.isPending}
+                    >
+                      {redeemMutation.isPending ? "Resgatando..." : "Resgatar"}
+                      <Gift className="h-4 w-4 ml-2" />
+                    </Button>
                     <Link href={`/aluno/marketplace/${vantagem.id}`}>
-                      <Button className="w-full group-hover:bg-campus-purple-600 transition-colors">
+                      <Button variant="outline" className="w-full">
                         Ver Detalhes
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
@@ -342,14 +369,16 @@ export default function MarketplacePage() {
           </p>
           <Button
             variant="outline"
-            onClick={() => setFiltros({
-              categoria: "todas",
-              empresa: "todas", 
-              precoMin: "",
-              precoMax: "",
-              busca: "",
-              ordenacao: "relevancia",
-            })}
+            onClick={() =>
+              setFiltros({
+                categoria: "todas",
+                empresa: "todas",
+                precoMin: "",
+                precoMax: "",
+                busca: "",
+                ordenacao: "relevancia",
+              })
+            }
           >
             Limpar Filtros
           </Button>
