@@ -9,6 +9,7 @@ import (
 type ProfessorRepository interface {
 	FindByID(id uint) (*model.User, error)
 	Save(prof *model.User) error
+	Update(prof *model.User) error
 	FindAllStudents(institution string) ([]model.User, error)
 }
 
@@ -29,6 +30,10 @@ func (r *professorRepository) FindByID(id uint) (*model.User, error) {
 }
 
 func (r *professorRepository) Save(prof *model.User) error {
+	return r.db.Save(prof).Error
+}
+
+func (r *professorRepository) Update(prof *model.User) error {
 	return r.db.Save(prof).Error
 }
 

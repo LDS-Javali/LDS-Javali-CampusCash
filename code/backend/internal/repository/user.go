@@ -10,6 +10,8 @@ type StudentRepository interface {
 	Create(student *model.User) error
 	FindByID(id uint) (*model.User, error)
 	FindByEmail(email string) (*model.User, error)
+	Update(student *model.User) error
+	SearchByNameOrEmail(query string) ([]model.User, error)
 }
 
 type studentRepository struct {
@@ -38,4 +40,17 @@ func (r *studentRepository) FindByEmail(email string) (*model.User, error) {
 		return nil, err
 	}
 	return &student, nil
+}
+
+func (r *studentRepository) Update(student *model.User) error {
+	return r.db.Save(student).Error
+}
+
+func (r *studentRepository) SearchByNameOrEmail(query string) ([]model.User, error) {
+	var students []model.User
+	err := r.db.Where("role = ? AND (name ILIKE ? OR email ILIKE ?)", 
+		model.StudentRole, 
+		"%"+query+"%", 
+		"%"+query+"%").Find(&students).Error
+	return students, err
 }

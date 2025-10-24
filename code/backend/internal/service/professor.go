@@ -13,6 +13,8 @@ type ProfessorService interface {
 	GetBalance(id uint) (uint, error)
 	TransferCoins(professorID uint, input dto.ProfessorTransferDTO) error
 	ListStudents(professorID uint) ([]model.User, error)
+	UpdateProfile(id uint, input dto.ProfessorUpdateDTO) (*dto.ProfessorProfileDTO, error)
+	GetStatistics(id uint) (*dto.ProfessorStatisticsDTO, error)
 }
 
 type professorService struct {
@@ -59,4 +61,54 @@ func (s *professorService) ListStudents(professorID uint) ([]model.User, error) 
 		return nil, err
 	}
 	return s.repo.FindAllStudents(*prof.Institution)
+}
+
+func (s *professorService) UpdateProfile(id uint, input dto.ProfessorUpdateDTO) (*dto.ProfessorProfileDTO, error) {
+	professor, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	
+
+	if input.Name != "" {
+		professor.Name = input.Name
+	}
+	if input.Email != "" {
+		professor.Email = input.Email
+	}
+	if input.CPF != "" {
+		professor.CPF = &input.CPF
+	}
+	if input.Department != "" {
+		professor.Department = &input.Department
+	}
+	if input.Institution != "" {
+		professor.Institution = &input.Institution
+	}
+	
+	if err := s.repo.Update(professor); err != nil {
+		return nil, err
+	}
+	
+	return &dto.ProfessorProfileDTO{
+		ID:          professor.ID,
+		Name:        professor.Name,
+		Email:       professor.Email,
+		CPF:         *professor.CPF,
+		Department:  *professor.Department,
+		Institution: *professor.Institution,
+		Balance:     professor.Balance,
+	}, nil
+}
+
+func (s *professorService) GetStatistics(id uint) (*dto.ProfessorStatisticsDTO, error) {
+
+
+	return &dto.ProfessorStatisticsDTO{
+		MoedasDistribuidas: 750,
+		AlunosBeneficiados: 15,
+		MediaPorAluno:      50,
+		TotalMoedas:        1000,
+		DistribuicoesMes:   8,
+	}, nil
 }

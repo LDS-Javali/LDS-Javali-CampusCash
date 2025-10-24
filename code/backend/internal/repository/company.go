@@ -9,6 +9,7 @@ import (
 type CompanyRepository interface {
 	FindByID(id uint) (*model.User, error)
 	Save(company *model.User) error
+	Update(company *model.User) error
 }
 
 type companyRepository struct {
@@ -28,5 +29,9 @@ func (r *companyRepository) FindByID(id uint) (*model.User, error) {
 }
 
 func (r *companyRepository) Save(company *model.User) error {
+	return r.db.Save(company).Error
+}
+
+func (r *companyRepository) Update(company *model.User) error {
 	return r.db.Save(company).Error
 }

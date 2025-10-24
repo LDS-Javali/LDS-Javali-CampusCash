@@ -1,7 +1,7 @@
 package model
 
 import (
-    "time"
+	"time"
 )
 
 type UserRole string
@@ -26,6 +26,7 @@ type User struct {
     Department   *string
     CompanyName  *string
     Balance      uint
+    AvatarData   []byte    `gorm:"type:blob"`
     CreatedAt    time.Time
     UpdatedAt    time.Time
 }

@@ -38,12 +38,12 @@ func SendCoins(db *gorm.DB, professorID, studentID uint, amount uint, message st
 		if err := tx.Create(&tr).Error; err != nil {
 			return err
 		}
-		// You can call mail.SendMail here
+
 		return nil
 	})
 }
 
-// CreditProfessors adds the given amount to all professors' balances and records a system transaction
+
 func CreditProfessors(db *gorm.DB, amount uint) error {
 	var profs []model.User
 	if err := db.Where("role = ?", model.ProfessorRole).Find(&profs).Error; err != nil {

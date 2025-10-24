@@ -82,3 +82,19 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"token": tokenString, "role": user.Role})
 	}
 }
+
+func GetMe(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetUint("userID")
+		var user model.User
+		if err := db.First(&user, userID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		
+
+		user.PasswordHash = ""
+		
+		c.JSON(http.StatusOK, user)
+	}
+}

@@ -55,3 +55,32 @@ func ProfessorStudents(svc service.ProfessorService) gin.HandlerFunc {
 		c.JSON(http.StatusOK, students)
 	}
 }
+
+func UpdateProfessorProfile(svc service.ProfessorService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.GetUint("userID")
+		var input dto.ProfessorUpdateDTO
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		professor, err := svc.UpdateProfile(id, input)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, professor)
+	}
+}
+
+func ProfessorStatistics(svc service.ProfessorService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.GetUint("userID")
+		stats, err := svc.GetStatistics(id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "professor not found"})
+			return
+		}
+		c.JSON(http.StatusOK, stats)
+	}
+}

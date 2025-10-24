@@ -8,7 +8,7 @@ type Reward struct {
     Title       string
     Description string
     Cost        uint
-    ImageURL    string
+    ImageData   []byte    `gorm:"type:blob"`
     Active      bool
     Category    string
     CreatedAt   time.Time

@@ -24,3 +24,19 @@ type ProfessorTransferDTO struct {
     Amount    uint   `json:"quantidade" binding:"required"`
     Reason    string `json:"motivo" binding:"required"`
 }
+
+type ProfessorUpdateDTO struct {
+    Name        string `json:"name"`
+    Email       string `json:"email" binding:"email"`
+    CPF         string `json:"cpf"`
+    Department  string `json:"department"`
+    Institution string `json:"institutionId"`
+}
+
+type ProfessorStatisticsDTO struct {
+    MoedasDistribuidas    uint `json:"moedasDistribuidas"`
+    AlunosBeneficiados    uint `json:"alunosBeneficiados"`
+    MediaPorAluno         uint `json:"mediaPorAluno"`
+    TotalMoedas           uint `json:"totalMoedas"`
+    DistribuicoesMes      uint `json:"distribuicoesMes"`
+}

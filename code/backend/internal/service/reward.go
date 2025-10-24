@@ -1,9 +1,9 @@
 package service
 
 import (
-    "campuscash-backend/internal/dto"
-    "campuscash-backend/internal/model"
-    "campuscash-backend/internal/repository"
+	"campuscash-backend/internal/dto"
+	"campuscash-backend/internal/model"
+	"campuscash-backend/internal/repository"
 )
 
 type RewardService interface {
@@ -24,7 +24,6 @@ func (s *rewardService) CreateReward(input dto.RewardCreateDTO) (*model.Reward, 
         Title:       input.Title,
         Description: input.Description,
         Cost:        input.Cost,
-        ImageURL:    input.ImageURL,
         Category:    input.Category,
         CompanyID:   input.CompanyID,
         Active:      true,
