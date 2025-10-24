@@ -27,8 +27,7 @@ func main() {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	service.SeedInstituicoes(db)
-	service.SeedProfessores(db)
+	service.SeedAll(db)
 
 	r := gin.Default()
 	r.Use(middleware.Cors())

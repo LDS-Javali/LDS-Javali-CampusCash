@@ -1,103 +1,70 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { 
-  CoinBadge, 
-  StatCard, 
-  TransactionItem, 
-  
+import {
+  CoinBadge,
+  StatCard,
+  TransactionItem,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button
+  Button,
 } from "@/components/design-system";
-import { 
-  Wallet, 
-  TrendingUp, 
-  Gift, 
+import {
+  Wallet,
+  TrendingUp,
+  Gift,
   ArrowRight,
   Star,
-  ShoppingBag
+  ShoppingBag,
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import {
+  useStudentBalance,
+  useStudentStatistics,
+  useStudentTransactions,
+  useRewards,
+} from "@/hooks";
+import { DashboardSkeleton } from "@/components/feedback/loading-states";
 
 export default function AlunoDashboard() {
-  // Mock data - substituir por dados reais da API
-  const saldoMoedas = 1250;
-  const transacoesRecentes = [
-    {
-      id: "1",
-      tipo: "recebimento" as const,
-      valor: 50,
-      descricao: "Excelente participação na aula de Matemática",
-      data: new Date("2024-01-15T10:30:00"),
-      nome: "Prof. Silva",
-      saldoApos: 1250,
-    },
-    {
-      id: "2", 
-      tipo: "resgate" as const,
-      valor: 100,
-      descricao: "Desconto 20% Restaurante Universitário",
-      data: new Date("2024-01-14T14:20:00"),
-      nome: "Restaurante Central",
-      saldoApos: 1200,
-    },
-    {
-      id: "3",
-      tipo: "recebimento" as const,
-      valor: 75,
-      descricao: "Boa apresentação do projeto",
-      data: new Date("2024-01-13T16:45:00"),
-      nome: "Prof. Santos",
-      saldoApos: 1300,
-    },
-  ];
+  const { data: balance, isLoading: balanceLoading } = useStudentBalance();
+  const { data: statistics, isLoading: statsLoading } = useStudentStatistics();
+  const { data: transactions, isLoading: transactionsLoading } =
+    useStudentTransactions();
+  const { data: rewards, isLoading: rewardsLoading } = useRewards({});
 
-  const vantagensDestaque = [
-    {
-      id: "1",
-      titulo: "Desconto 30% Livraria",
-      empresa: "Livraria Central",
-      custoMoedas: 200,
-      imagem: "/placeholder-vantagem.jpg",
-    },
-    {
-      id: "2",
-      titulo: "Almoço Grátis",
-      empresa: "Restaurante Universitário",
-      custoMoedas: 150,
-      imagem: "/placeholder-vantagem.jpg",
-    },
-    {
-      id: "3",
-      titulo: "Desconto Mensalidade",
-      empresa: "Universidade",
-      custoMoedas: 500,
-      imagem: "/placeholder-vantagem.jpg",
-    },
-  ];
+  const isLoading =
+    balanceLoading || statsLoading || transactionsLoading || rewardsLoading;
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const saldoMoedas = balance?.balance || 0;
+  const transacoesRecentes = transactions?.slice(0, 5) || [];
+  const vantagensDestaque = rewards?.slice(0, 3) || [];
 
   const stats = [
     {
       title: "Moedas Recebidas",
-      value: "1.2K",
-      trend: { value: 15, label: "este mês" },
+      value: statistics?.totalCoins?.toString() || "0",
+      trend: { value: 0, label: "este mês" },
       color: "green" as const,
       icon: TrendingUp,
     },
     {
       title: "Vantagens Resgatadas",
-      value: "8",
-      trend: { value: 25, label: "este mês" },
+      value: statistics?.totalRewards?.toString() || "0",
+      trend: { value: 0, label: "este mês" },
       color: "purple" as const,
       icon: Gift,
     },
     {
-      title: "Professores Ativos",
-      value: "12",
+      title: "Transações",
+      value: statistics?.totalTransactions?.toString() || "0",
       trend: { value: 0, label: "este mês" },
       color: "blue" as const,
       icon: Star,
@@ -107,7 +74,7 @@ export default function AlunoDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -130,10 +97,10 @@ export default function AlunoDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-2">Seu Saldo</h2>
-            <CoinBadge 
-              amount={saldoMoedas} 
-              variant="large" 
-              animated 
+            <CoinBadge
+              amount={saldoMoedas}
+              variant="large"
+              animated
               className="text-white"
             />
           </div>
@@ -169,11 +136,7 @@ export default function AlunoDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Transações Recentes */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -189,21 +152,14 @@ export default function AlunoDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               {transacoesRecentes.map((transacao) => (
-                <TransactionItem
-                  key={transacao.id}
-                  {...transacao}
-                />
+                <TransactionItem key={transacao.id} {...transacao} />
               ))}
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Vantagens em Destaque */}
-        <motion.div
-          variants={slideUp}
-          initial="initial"
-          animate="animate"
-        >
+        <motion.div variants={slideUp} initial="initial" animate="animate">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -235,8 +191,8 @@ export default function AlunoDashboard() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <CoinBadge 
-                      amount={vantagem.custoMoedas} 
+                    <CoinBadge
+                      amount={vantagem.custoMoedas}
                       variant="compact"
                     />
                   </div>

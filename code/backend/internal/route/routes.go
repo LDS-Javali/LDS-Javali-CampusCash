@@ -39,7 +39,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	r.POST("/api/auth/signup/student", controller.SignupAluno(db))
 	r.GET("/api/auth/me", middleware.Auth(), controller.GetMe(db))
 
-	r.POST("/api/auth/signup/company", middleware.ValidateCompanyRegistration(), func(c *gin.Context) {
+	r.POST("/api/auth/signup/company", func(c *gin.Context) {
 		var in dto.CompanyRegisterDTO
 		if err := c.ShouldBindJSON(&in); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -53,7 +53,6 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			Role:         model.CompanyRole,
 			CompanyName:  &in.Name,
 			CPF:          &in.CNPJ,
-			Address:      in.Address,
 		}
 		if err := db.Create(&user).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

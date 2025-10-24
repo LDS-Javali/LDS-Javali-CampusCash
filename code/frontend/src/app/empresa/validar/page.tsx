@@ -38,7 +38,7 @@ export default function ValidarCuponsPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [cupomValidado, setCupomValidado] = useState<any>(null);
 
-  // Mock data - substituir por dados reais da API
+  
   const validacoesRecentes = [
     {
       id: "1",

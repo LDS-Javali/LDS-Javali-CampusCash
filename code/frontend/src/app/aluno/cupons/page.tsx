@@ -35,7 +35,7 @@ export default function MeusCuponsPage() {
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Mock data - substituir por dados reais da API
+  
   const cupons = [
     {
       id: "1",

@@ -6,11 +6,15 @@ import type { User, Notification } from "@/lib/types";
 // Auth Store
 interface AuthState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: User) => void;
+  login: (user: User, token: string) => void;
   logout: () => void;
+  setToken: (token: string) => void;
+  setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
+  clearAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -18,17 +22,23 @@ export const useAuthStore = create<AuthState>()(
     persist(
       (set) => ({
         user: null,
+        token: null,
         isAuthenticated: false,
         isLoading: false,
-        login: (user) => set({ user, isAuthenticated: true }),
-        logout: () => set({ user: null, isAuthenticated: false }),
+        login: (user, token) => set({ user, token, isAuthenticated: true }),
+        logout: () => set({ user: null, token: null, isAuthenticated: false }),
+        setToken: (token) => set({ token }),
+        setUser: (user) => set({ user }),
         setLoading: (isLoading) => set({ isLoading }),
+        clearAuth: () =>
+          set({ user: null, token: null, isAuthenticated: false }),
       }),
       {
         name: "auth-storage",
-        partialize: (state) => ({ 
-          user: state.user, 
-          isAuthenticated: state.isAuthenticated 
+        partialize: (state) => ({
+          user: state.user,
+          token: state.token,
+          isAuthenticated: state.isAuthenticated,
         }),
       }
     ),
@@ -56,7 +66,8 @@ export const useUIStore = create<UIState>()(
         sidebarOpen: true,
         theme: "light",
         notifications: [],
-        toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+        toggleSidebar: () =>
+          set((state) => ({ sidebarOpen: !state.sidebarOpen })),
         setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
         setTheme: (theme) => set({ theme }),
         addNotification: (notification) => {
@@ -80,9 +91,9 @@ export const useUIStore = create<UIState>()(
       }),
       {
         name: "ui-storage",
-        partialize: (state) => ({ 
+        partialize: (state) => ({
           theme: state.theme,
-          sidebarOpen: state.sidebarOpen 
+          sidebarOpen: state.sidebarOpen,
         }),
       }
     ),

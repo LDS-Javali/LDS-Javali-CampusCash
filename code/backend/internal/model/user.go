@@ -21,6 +21,7 @@ type User struct {
     Role         UserRole
     RG           *string
     Address      string
+    Registration *string
     Institution  *string
     Course       *string
     Department   *string

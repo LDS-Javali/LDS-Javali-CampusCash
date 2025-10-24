@@ -16,8 +16,7 @@ type SignupStudentInput struct {
 	Name        string `json:"name" binding:"required"`
 	Email       string `json:"email" binding:"required"`
 	CPF         string `json:"cpf" binding:"required"`
-	RG          string `json:"rg" binding:"required"`
-	Address     string `json:"address" binding:"required"`
+	Registration string `json:"registration" binding:"required"`
 	Institution string `json:"institution" binding:"required"`
 	Course      string `json:"course" binding:"required"`
 	Password    string `json:"password" binding:"required"`
@@ -36,8 +35,7 @@ func SignupAluno(db *gorm.DB) gin.HandlerFunc {
 			Email:        input.Email,
 			PasswordHash: string(hash),
 			CPF:          &input.CPF,
-			RG:           &input.RG,
-			Address:      input.Address,
+			Registration: &input.Registration,
 			Institution:  &input.Institution,
 			Course:       &input.Course,
 			Role:         model.StudentRole,
@@ -79,7 +77,16 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		tokenString, _ := token.SignedString(config.JWTSecret)
-		c.JSON(http.StatusOK, gin.H{"token": tokenString, "role": user.Role})
+		user.PasswordHash = ""
+		c.JSON(http.StatusOK, gin.H{
+			"token": tokenString,
+			"user": gin.H{
+				"id":    user.ID,
+				"name":  user.Name,
+				"email": user.Email,
+				"role":  user.Role,
+			},
+		})
 	}
 }
 

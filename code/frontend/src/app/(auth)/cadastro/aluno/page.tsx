@@ -2,43 +2,47 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { GraduationCap, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useFormStore } from "@/store";
 import { slideUp, fadeIn } from "@/lib/animations";
-import { toast } from "sonner";
+import { useSignupStudent, useInstitutions } from "@/hooks";
 
 const steps = [
   { id: 1, title: "Dados Pessoais", description: "Informações básicas" },
-  { id: 2, title: "Endereço", description: "Localização" },
-  { id: 3, title: "Dados Acadêmicos", description: "Instituição e curso" },
-  { id: 4, title: "Senha", description: "Criar senha" },
+  { id: 2, title: "Dados Acadêmicos", description: "Instituição e curso" },
+  { id: 3, title: "Senha", description: "Criar senha" },
 ];
 
 export default function CadastroAlunoPage() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { formData, updateFormData, setCurrentStep: setFormStep } = useFormStore();
+  const {
+    formData,
+    updateFormData,
+    setCurrentStep: setFormStep,
+  } = useFormStore();
+  const signupMutation = useSignupStudent();
+  const { data: institutions = [] } = useInstitutions();
 
   const [form, setForm] = useState({
-    nome: "",
+    name: "",
     email: "",
     cpf: "",
-    rg: "",
-    endereco: "",
-    cidade: "",
-    estado: "",
-    cep: "",
-    instituicaoId: "",
-    curso: "",
+    registration: "",
+    course: "",
+    institution: "",
     password: "",
     confirmPassword: "",
   });
@@ -58,17 +62,15 @@ export default function CadastroAlunoPage() {
   };
 
   const handleSubmit = async () => {
-    setIsLoading(true);
-    try {
-      // Simular cadastro
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("Cadastro realizado com sucesso!");
-      router.push("/login");
-    } catch (error) {
-      toast.error("Erro ao realizar cadastro. Tente novamente.");
-    } finally {
-      setIsLoading(false);
-    }
+    signupMutation.mutate({
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      cpf: form.cpf,
+      registration: form.registration,
+      course: form.course,
+      institution: form.institution,
+    });
   };
 
   const renderStepContent = () => {
@@ -77,12 +79,14 @@ export default function CadastroAlunoPage() {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo</Label>
+              <Label htmlFor="name">Nome Completo</Label>
               <Input
-                id="nome"
+                id="name"
                 placeholder="Seu nome completo"
-                value={form.nome}
-                onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))}
+                value={form.name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
                 required
               />
             </div>
@@ -93,7 +97,9 @@ export default function CadastroAlunoPage() {
                 type="email"
                 placeholder="seu@email.com"
                 value={form.email}
-                onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, email: e.target.value }))
+                }
                 required
               />
             </div>
@@ -104,17 +110,24 @@ export default function CadastroAlunoPage() {
                   id="cpf"
                   placeholder="000.000.000-00"
                   value={form.cpf}
-                  onChange={(e) => setForm(prev => ({ ...prev, cpf: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, cpf: e.target.value }))
+                  }
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rg">RG</Label>
+                <Label htmlFor="registration">Matrícula</Label>
                 <Input
-                  id="rg"
-                  placeholder="00.000.000-0"
-                  value={form.rg}
-                  onChange={(e) => setForm(prev => ({ ...prev, rg: e.target.value }))}
+                  id="registration"
+                  placeholder="Sua matrícula"
+                  value={form.registration}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      registration: e.target.value,
+                    }))
+                  }
                   required
                 />
               </div>
@@ -126,57 +139,34 @@ export default function CadastroAlunoPage() {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="endereco">Endereço Completo</Label>
-              <Textarea
-                id="endereco"
-                placeholder="Rua, número, bairro..."
-                value={form.endereco}
-                onChange={(e) => setForm(prev => ({ ...prev, endereco: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cidade">Cidade</Label>
-                <Input
-                  id="cidade"
-                  placeholder="Sua cidade"
-                  value={form.cidade}
-                  onChange={(e) => setForm(prev => ({ ...prev, cidade: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="estado">Estado</Label>
-                <Select
-                  value={form.estado}
-                  onValueChange={(value) => setForm(prev => ({ ...prev, estado: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SP">São Paulo</SelectItem>
-                    <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                    <SelectItem value="MG">Minas Gerais</SelectItem>
-                    <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-                    <SelectItem value="PR">Paraná</SelectItem>
-                    <SelectItem value="SC">Santa Catarina</SelectItem>
-                    <SelectItem value="BA">Bahia</SelectItem>
-                    <SelectItem value="GO">Goiás</SelectItem>
-                    <SelectItem value="PE">Pernambuco</SelectItem>
-                    <SelectItem value="CE">Ceará</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label htmlFor="institution">Instituição de Ensino</Label>
+              <Select
+                value={form.institution}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, institution: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione sua instituição" />
+                </SelectTrigger>
+                <SelectContent>
+                  {institutions.map((institution) => (
+                    <SelectItem key={institution.ID} value={institution.Name}>
+                      {institution.Name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cep">CEP</Label>
+              <Label htmlFor="course">Curso</Label>
               <Input
-                id="cep"
-                placeholder="00000-000"
-                value={form.cep}
-                onChange={(e) => setForm(prev => ({ ...prev, cep: e.target.value }))}
+                id="course"
+                placeholder="Nome do seu curso"
+                value={form.course}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, course: e.target.value }))
+                }
                 required
               />
             </div>
@@ -187,50 +177,15 @@ export default function CadastroAlunoPage() {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="instituicao">Instituição de Ensino</Label>
-              <Select
-                value={form.instituicaoId}
-                onValueChange={(value) => setForm(prev => ({ ...prev, instituicaoId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione sua instituição" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="puc-rio">PUC-Rio</SelectItem>
-                  <SelectItem value="usp">USP</SelectItem>
-                  <SelectItem value="unicamp">Unicamp</SelectItem>
-                  <SelectItem value="ufrj">UFRJ</SelectItem>
-                  <SelectItem value="ufmg">UFMG</SelectItem>
-                  <SelectItem value="ufpr">UFPR</SelectItem>
-                  <SelectItem value="ufsc">UFSC</SelectItem>
-                  <SelectItem value="ufba">UFBA</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="curso">Curso</Label>
-              <Input
-                id="curso"
-                placeholder="Nome do seu curso"
-                value={form.curso}
-                onChange={(e) => setForm(prev => ({ ...prev, curso: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Mínimo 8 caracteres"
                 value={form.password}
-                onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, password: e.target.value }))
+                }
                 required
               />
             </div>
@@ -241,7 +196,12 @@ export default function CadastroAlunoPage() {
                 type="password"
                 placeholder="Digite a senha novamente"
                 value={form.confirmPassword}
-                onChange={(e) => setForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    confirmPassword: e.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -264,13 +224,15 @@ export default function CadastroAlunoPage() {
   const isStepValid = () => {
     switch (currentStep) {
       case 0:
-        return form.nome && form.email && form.cpf && form.rg;
+        return form.name && form.email && form.cpf && form.registration;
       case 1:
-        return form.endereco && form.cidade && form.estado && form.cep;
+        return form.institution && form.course;
       case 2:
-        return form.instituicaoId && form.curso;
-      case 3:
-        return form.password && form.confirmPassword && form.password === form.confirmPassword;
+        return (
+          form.password &&
+          form.confirmPassword &&
+          form.password === form.confirmPassword
+        );
       default:
         return false;
     }
@@ -316,11 +278,17 @@ export default function CadastroAlunoPage() {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {index < currentStep ? <Check className="h-4 w-4" /> : step.id}
+                    {index < currentStep ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      step.id
+                    )}
                   </div>
                   <div className="ml-3 hidden sm:block">
                     <p className="text-sm font-medium">{step.title}</p>
-                    <p className="text-xs text-muted-foreground">{step.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {step.description}
+                    </p>
                   </div>
                 </div>
                 {index < steps.length - 1 && (
@@ -360,16 +328,15 @@ export default function CadastroAlunoPage() {
               {currentStep === steps.length - 1 ? (
                 <Button
                   onClick={handleSubmit}
-                  disabled={!isStepValid() || isLoading}
+                  disabled={!isStepValid() || signupMutation.isPending}
                   className="bg-gradient-to-r from-campus-purple-500 to-campus-blue-500 hover:from-campus-purple-600 hover:to-campus-blue-600"
                 >
-                  {isLoading ? "Criando conta..." : "Finalizar Cadastro"}
+                  {signupMutation.isPending
+                    ? "Criando conta..."
+                    : "Finalizar Cadastro"}
                 </Button>
               ) : (
-                <Button
-                  onClick={handleNext}
-                  disabled={!isStepValid()}
-                >
+                <Button onClick={handleNext} disabled={!isStepValid()}>
                   Próximo
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>

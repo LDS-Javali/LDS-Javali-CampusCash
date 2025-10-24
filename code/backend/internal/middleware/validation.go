@@ -10,14 +10,13 @@ import (
 func ValidateStudentRegistration() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			Name        string `json:"name" binding:"required"`
-			Email       string `json:"email" binding:"required,email"`
-			Password    string `json:"password" binding:"required"`
-			CPF         string `json:"cpf" binding:"required"`
-			RG          string `json:"rg" binding:"required"`
-			Address     string `json:"address" binding:"required"`
-			Institution string `json:"institution" binding:"required"`
-			Course      string `json:"course" binding:"required"`
+			Name         string `json:"name" binding:"required"`
+			Email        string `json:"email" binding:"required,email"`
+			Password     string `json:"password" binding:"required"`
+			CPF          string `json:"cpf" binding:"required"`
+			Registration string `json:"registration" binding:"required"`
+			Institution  string `json:"institution" binding:"required"`
+			Course       string `json:"course" binding:"required"`
 		}
 
 		if err := c.ShouldBindJSON(&input); err != nil {
@@ -54,13 +53,11 @@ func ValidateStudentRegistration() gin.HandlerFunc {
 func ValidateCompanyRegistration() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			Name     string `json:"nomeFantasia" binding:"required"`
-			Email    string `json:"email" binding:"required,email"`
-			Password string `json:"password" binding:"required"`
-			CNPJ     string `json:"cnpj" binding:"required"`
-			Address  string `json:"endereco" binding:"required"`
-			Phone    string `json:"telefone" binding:"required"`
-			Category string `json:"categoria" binding:"required"`
+			Name        string `json:"name" binding:"required"`
+			Email       string `json:"email" binding:"required,email"`
+			Password    string `json:"password" binding:"required"`
+			CNPJ        string `json:"cnpj" binding:"required"`
+			Description string `json:"description" binding:"required"`
 		}
 
 		if err := c.ShouldBindJSON(&input); err != nil {
