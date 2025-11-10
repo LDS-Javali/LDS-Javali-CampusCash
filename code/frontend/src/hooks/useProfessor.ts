@@ -32,6 +32,7 @@ export function useProfessorBalance() {
     queryKey: ["professor", "balance"],
     queryFn: () => professorService.getBalance(),
     retry: false,
+    refetchInterval: 5000, // Refetch a cada 5 segundos para pegar atualizações do cronjob
   });
 }
 
@@ -65,26 +66,6 @@ export function useSearchStudents(query: string) {
     queryFn: () => professorService.searchStudents(query),
     enabled: query.length > 2,
     retry: false,
-  });
-}
-
-export function useTransferCoins() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: { studentId: number; amount: number; reason: string }) =>
-      professorService.transferCoins(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["professor", "balance"] });
-      queryClient.invalidateQueries({
-        queryKey: ["professor", "transactions"],
-      });
-      queryClient.invalidateQueries({ queryKey: ["professor", "statistics"] });
-      toast.success("Moedas transferidas com sucesso!");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Erro ao transferir moedas");
-    },
   });
 }
 

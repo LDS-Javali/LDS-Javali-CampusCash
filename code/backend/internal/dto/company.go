@@ -28,12 +28,16 @@ type CompanyUpdateDTO struct {
 }
 
 type CompanyStatisticsDTO struct {
-    VantagensAtivas      uint `json:"vantagensAtivas"`
-    ResgatesMes          uint `json:"resgatesMes"`
-    ReceitaMoedas        uint `json:"receitaMoedas"`
-    AlunosUnicos         uint `json:"alunosUnicos"`
-    TotalVantagens       uint `json:"totalVantagens"`
-    ResgatesPendentes    uint `json:"resgatesPendentes"`
+    VantagensAtivas      uint    `json:"vantagensAtivas"`
+    ResgatesMes          uint    `json:"resgatesMes"`
+    ReceitaMoedas        uint    `json:"receitaMoedas"`
+    AlunosUnicos         uint    `json:"alunosUnicos"`
+    TotalVantagens       uint    `json:"totalVantagens"`
+    ResgatesPendentes    uint    `json:"resgatesPendentes"`
+    VantagensAtivasPercentual    float64 `json:"vantagensAtivasPercentual,omitempty"`
+    ResgatesMesPercentual        float64 `json:"resgatesMesPercentual,omitempty"`
+    ReceitaMoedasPercentual      float64 `json:"receitaMoedasPercentual,omitempty"`
+    AlunosUnicosPercentual       float64 `json:"alunosUnicosPercentual,omitempty"`
 }
 
 type CompanyValidationDTO struct {

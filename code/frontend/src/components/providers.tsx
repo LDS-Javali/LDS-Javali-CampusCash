@@ -2,8 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { ThemeProvider } from "next-themes";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuthStore } from "@/store";
+import { authService } from "@/lib/api";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -28,17 +29,37 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
+  const { setUser, setToken, isAuthenticated } = useAuthStore();
+
+  // Load user from token on app startup
+  useEffect(() => {
+    const loadUserFromToken = async () => {
+      const token = authService.getToken();
+      if (token && !isAuthenticated) {
+        try {
+          const user = await authService.getMe();
+          setUser(user);
+          setToken(token);
+        } catch (error) {
+          console.error("Failed to load user from token:", error);
+          authService.logout();
+        }
+      }
+    };
+
+    loadUserFromToken();
+  }, [setUser, setToken, isAuthenticated]);
+
+  // Force light mode
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.add("light");
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
         {children}
         <ReactQueryDevtools initialIsOpen={false} />
-      </ThemeProvider>
     </QueryClientProvider>
   );
 }

@@ -4,8 +4,10 @@ import (
 	"campuscash-backend/internal/dto"
 	"campuscash-backend/internal/model"
 	"campuscash-backend/internal/repository"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type StudentService interface {
@@ -19,10 +21,11 @@ type StudentService interface {
 
 type studentService struct {
 	repo repository.StudentRepository
+	db   *gorm.DB
 }
 
-func NewStudentService(repo repository.StudentRepository) StudentService {
-	return &studentService{repo}
+func NewStudentService(repo repository.StudentRepository, db *gorm.DB) StudentService {
+	return &studentService{repo, db}
 }
 
 func (s *studentService) RegisterStudent(input dto.StudentRegisterDTO) (*model.User, error) {
@@ -121,14 +124,63 @@ func (s *studentService) UpdateProfile(id uint, input dto.StudentUpdateDTO) (*dt
 }
 
 func (s *studentService) GetStatistics(id uint) (*dto.StudentStatisticsDTO, error) {
+	// Buscar aluno para pegar saldo atual
+	student, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
 
+	// Calcular início do mês atual
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	// Moedas recebidas este mês (transações do tipo "give" onde o aluno é o destinatário)
+	var moedasRecebidasMesResult struct {
+		Total uint
+	}
+	if err := s.db.Model(&model.Transaction{}).
+		Select("COALESCE(SUM(amount), 0) as total").
+		Where("to_user_id = ? AND type = ? AND created_at >= ?", id, model.GiveCoins, startOfMonth).
+		Scan(&moedasRecebidasMesResult).Error; err != nil {
+		moedasRecebidasMesResult.Total = 0
+	}
+
+	// Professores únicos que enviaram moedas para este aluno
+	var professoresUnicosResult struct {
+		Count int64
+	}
+	if err := s.db.Raw(`
+		SELECT COUNT(DISTINCT from_user_id) as count 
+		FROM transactions 
+		WHERE to_user_id = ? AND type = ? AND from_user_id IS NOT NULL
+	`, id, model.GiveCoins).Scan(&professoresUnicosResult).Error; err != nil {
+		professoresUnicosResult.Count = 0
+	}
+
+	// Resgates realizados (transações do tipo "redeem" onde o aluno é o remetente)
+	var resgatesRealizados int64
+	if err := s.db.Model(&model.Transaction{}).
+		Where("from_user_id = ? AND type = ?", id, model.RedeemCoins).
+		Count(&resgatesRealizados).Error; err != nil {
+		resgatesRealizados = 0
+	}
+
+	// Calcular rank (posição do aluno baseado no saldo total)
+	// Contar quantos alunos têm saldo maior que este aluno
+	var rankCount int64
+	if err := s.db.Model(&model.User{}).
+		Where("role = ? AND balance > ?", model.StudentRole, student.Balance).
+		Count(&rankCount).Error; err != nil {
+		rankCount = 0
+	}
+	rank := uint(rankCount) + 1
 
 	return &dto.StudentStatisticsDTO{
-		MoedasRecebidasMes: 150,
-		ProfessoresUnicos:  3,
-		Rank:               1,
-		TotalMoedas:        1250,
-		ResgatesRealizados: 2,
+		MoedasRecebidasMes: moedasRecebidasMesResult.Total,
+		ProfessoresUnicos:  uint(professoresUnicosResult.Count),
+		Rank:               rank,
+		TotalMoedas:        student.Balance,
+		ResgatesRealizados: uint(resgatesRealizados),
 	}, nil
 }
 

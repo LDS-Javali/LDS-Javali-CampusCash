@@ -45,7 +45,9 @@ func SignupAluno(db *gorm.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Student registered successfully"})
+		// Remove password hash antes de retornar
+		student.PasswordHash = ""
+		c.JSON(http.StatusCreated, student)
 	}
 }
 
@@ -63,11 +65,11 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 		}
 		var user model.User
 		if err := db.Where("email = ?", input.Email).First(&user).Error; err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "credenciais inválidas"})
 			return
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "credenciais inválidas"})
 			return
 		}
 		claims := jwt.MapClaims{
@@ -95,13 +97,47 @@ func GetMe(db *gorm.DB) gin.HandlerFunc {
 		userID := c.GetUint("userID")
 		var user model.User
 		if err := db.First(&user, userID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado"})
 			return
 		}
-		
 
 		user.PasswordHash = ""
-		
+
 		c.JSON(http.StatusOK, user)
+	}
+}
+
+type SignupCompanyInput struct {
+	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required"`
+	CNPJ        string `json:"cnpj" binding:"required"`
+	Description string `json:"description"`
+}
+
+func SignupCompany(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var input SignupCompanyInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		pwHash, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		user := model.User{
+			Name:         input.Name,
+			Email:        input.Email,
+			PasswordHash: string(pwHash),
+			Role:         model.CompanyRole,
+			CompanyName:  &input.Name,
+			CPF:          &input.CNPJ,
+			Balance:      0,
+		}
+		if err := db.Create(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		// Remove password hash antes de retornar
+		user.PasswordHash = ""
+		c.JSON(http.StatusCreated, user)
 	}
 }

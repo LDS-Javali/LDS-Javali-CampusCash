@@ -9,10 +9,12 @@ export interface User {
 
 export interface Student extends User {
   role: "student";
-  cpf: string;
-  registration: string;
-  course: string;
-  institution: string;
+  cpf?: string;
+  registration?: string;
+  course?: string;
+  institution?: string;
+  rg?: string;
+  address?: string;
   avatarData?: string;
   balance: number;
 }
@@ -35,38 +37,57 @@ export interface Company extends User {
 }
 
 export interface Reward {
-  id: number;
-  title: string;
-  description: string;
-  cost: number;
-  category: string;
-  active: boolean;
-  imageData?: string;
-  companyId: number;
-  company?: Company;
-  createdAt: string;
-  updatedAt: string;
+  ID: number;
+  Title: string;
+  Description: string;
+  Cost: number;
+  Category: string;
+  Active: boolean;
+  ImageData?: string;
+  ImageURL?: string;
+  CompanyID: number;
+  CompanyName?: string;
+  Company?: Company;
+  CreatedAt: string;
+  UpdatedAt: string;
+  ResgatesCount?: number;
 }
 
 export interface Transaction {
-  id: number;
-  type: "credit" | "debit";
-  amount: number;
-  description: string;
-  userId: number;
-  createdAt: string;
+  ID: number;
+  FromUserID?: number;
+  ToUserID?: number;
+  Amount: number;
+  Message: string;
+  Type: "give" | "redeem";
+  RewardID?: number;
+  CreatedAt: string;
+  Code?: string;
+  FromUserName?: string;
+  FromUserEmail?: string;
+  ToUserName?: string;
+  RewardTitle?: string;
+}
+
+export interface TransactionListResponse {
+  transactions: Transaction[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface Coupon {
-  id: number;
-  code: string;
-  rewardId: number;
-  reward?: Reward;
-  studentId: number;
-  student?: Student;
-  used: boolean;
-  usedAt?: string;
-  createdAt: string;
+  ID: number;
+  Code: string;
+  Hash: string;
+  RewardID: number;
+  Reward?: Reward;
+  StudentID: number;
+  Student?: Student;
+  Redeemed: boolean;
+  UsedAt?: string;
+  CreatedAt: string;
+  ExpiresAt?: string;
 }
 
 export interface Institution {
@@ -107,6 +128,8 @@ export interface UpdateProfileRequest {
   name?: string;
   email?: string;
   cpf?: string;
+  rg?: string;
+  address?: string;
   registration?: string;
   course?: string;
   institution?: string;
@@ -115,26 +138,31 @@ export interface UpdateProfileRequest {
 }
 
 export interface GiveCoinsRequest {
-  studentId: number;
+  to_student_id: number;
   amount: number;
-  reason: string;
+  message: string;
 }
 
 export interface CreateRewardRequest {
-  title: string;
-  description: string;
-  cost: number;
-  category: string;
+  titulo: string;
+  descricao: string;
+  custoMoedas: number;
+  categoria: string;
+  imagem?: string;
 }
 
 export interface ValidateCouponRequest {
-  code: string;
+  codigo?: string;
+  hash?: string;
 }
 
 export interface ValidateCouponResponse {
-  valid: boolean;
+  success: boolean;
   coupon?: Coupon;
-  message: string;
+  student?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface ApiError {
@@ -161,4 +189,37 @@ export interface Statistics {
   totalStudents?: number;
   totalValidations?: number;
   recentActivity?: Transaction[];
+  // Campos específicos do professor
+  moedasDistribuidas?: number;
+  alunosBeneficiados?: number;
+  distribuicoesMes?: number;
+  // Campos específicos do aluno
+  moedasRecebidasMes?: number;
+  professoresUnicos?: number;
+  rank?: number;
+  resgatesRealizados?: number;
+}
+
+export interface CompanyStatistics {
+  vantagensAtivas: number;
+  resgatesMes: number;
+  receitaMoedas: number;
+  alunosUnicos: number;
+  totalVantagens: number;
+  resgatesPendentes: number;
+  vantagensAtivasPercentual?: number;
+  resgatesMesPercentual?: number;
+  receitaMoedasPercentual?: number;
+  alunosUnicosPercentual?: number;
+}
+
+export interface Notification {
+  ID: number;
+  UserID: number;
+  Type: "redeem" | "receive_coins" | "distribute";
+  Title: string;
+  Message: string;
+  Read: boolean;
+  CreatedAt: string;
+  ReadAt?: string;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { 
   Card,
   CardContent,
@@ -21,30 +21,31 @@ import {
 } from "@/components/design-system";
 import { 
   Gift,
+  Upload,
   ArrowLeft,
   Save,
-  Building2,
-  UtensilsCrossed,
-  GraduationCap,
-  Dumbbell,
-  Wrench,
-  Laptop,
-  Heart,
-  Sparkles,
-  Film,
-  ShoppingBag,
-  Package
+  Image as ImageIcon,
+  Building2
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
 import { toast } from "sonner";
-import { useCreateReward } from "@/hooks";
-import { categoriaIcones, getCategoryIcon } from "@/lib/utils/reward-icons";
+import { useCompanyRewards, useUpdateReward, useUploadRewardImage } from "@/hooks";
 
-export default function NovaVantagemPage() {
+export default function EditarVantagemPage() {
   const router = useRouter();
+  const params = useParams();
+  const rewardId = parseInt(params.id as string);
+  
+  const [isSalvando, setIsSalvando] = useState(false);
+  const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+  const [imagemNova, setImagemNova] = useState<File | null>(null);
 
-  const createRewardMutation = useCreateReward();
+  const { data: rewards, isLoading: rewardsLoading } = useCompanyRewards();
+  const updateRewardMutation = useUpdateReward();
+  const uploadImageMutation = useUploadRewardImage();
+
+  const reward = rewards?.find((r) => r.ID === rewardId);
 
   const [formData, setFormData] = useState({
     titulo: "",
@@ -66,29 +67,64 @@ export default function NovaVantagemPage() {
     "Outros"
   ];
 
-  // Obter o ícone da categoria selecionada
-  const IconeSelecionado = getCategoryIcon(formData.categoria);
+  useEffect(() => {
+    if (reward) {
+      setFormData({
+        titulo: reward.Title || "",
+        descricao: reward.Description || "",
+        custoMoedas: reward.Cost?.toString() || "",
+        categoria: reward.Category || "",
+      });
+      if (reward.ImageURL) {
+        setImagemPreview(reward.ImageURL);
+      }
+    }
+  }, [reward]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImagemNova(file);
+      
+      // Criar preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagemPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSalvando(true);
 
     try {
-      // Criar vantagem
-      await createRewardMutation.mutateAsync({
-        titulo: formData.titulo,
-        descricao: formData.descricao,
-        custoMoedas: parseInt(formData.custoMoedas),
-        categoria: formData.categoria,
+      // Atualizar dados da vantagem
+      await updateRewardMutation.mutateAsync({
+        rewardId,
+        data: {
+          titulo: formData.titulo,
+          descricao: formData.descricao,
+          custoMoedas: parseInt(formData.custoMoedas),
+          categoria: formData.categoria,
+        },
       });
 
-      // Aguardar um pouco para garantir que o cache seja atualizado
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Se houver nova imagem, fazer upload
+      if (imagemNova) {
+        await uploadImageMutation.mutateAsync({
+          rewardId,
+          file: imagemNova,
+        });
+      }
 
-      // Redirecionar para a página de vantagens após sucesso
+      toast.success("Vantagem atualizada com sucesso!");
       router.push("/empresa/vantagens");
     } catch (error) {
-      // Erro já é tratado pelo hook
-      console.error("Erro ao criar vantagem:", error);
+      toast.error("Erro ao atualizar vantagem. Tente novamente.");
+    } finally {
+      setIsSalvando(false);
     }
   };
 
@@ -101,6 +137,32 @@ export default function NovaVantagemPage() {
     );
   };
 
+  if (rewardsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!reward) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Vantagem não encontrada</p>
+          <Link href="/empresa/vantagens">
+            <Button variant="outline" className="mt-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -108,10 +170,10 @@ export default function NovaVantagemPage() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Nova Vantagem
+              Editar Vantagem
             </h1>
             <p className="text-muted-foreground">
-              Crie uma nova vantagem para oferecer aos estudantes
+              Atualize as informações da vantagem
             </p>
           </div>
         </div>
@@ -193,76 +255,77 @@ export default function NovaVantagemPage() {
               </CardContent>
             </Card>
 
-            {/* Ícone da Vantagem */}
+            {/* Upload de Imagem */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Gift className="h-5 w-5" />
-                  Ícone da Vantagem
+                  <ImageIcon className="h-5 w-5" />
+                  Imagem da Vantagem
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    O ícone será selecionado automaticamente com base na categoria escolhida.
-                  </div>
-                  
-                  {formData.categoria ? (
+                  {imagemPreview ? (
                     <div className="space-y-4">
-                      <div className="aspect-video bg-gradient-to-br from-campus-purple-100 to-campus-blue-100 rounded-lg flex items-center justify-center border-2 border-campus-purple-200">
-                        <IconeSelecionado className="h-24 w-24 text-campus-purple-600" />
+                      <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                        <img
+                          src={imagemPreview}
+                          alt="Preview da vantagem"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-foreground">
-                          Categoria: {formData.categoria}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Este ícone será usado para representar sua vantagem
-                        </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="imagem-upload"
+                        />
+                        <label htmlFor="imagem-upload">
+                          <Button type="button" variant="outline" size="sm">
+                            <Upload className="h-4 w-4 mr-2" />
+                            Alterar Imagem
+                          </Button>
+                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setImagemPreview(reward.ImageURL || null);
+                            setImagemNova(null);
+                          }}
+                        >
+                          Remover Nova
+                        </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                      <Gift className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Selecione uma Categoria</h3>
-                      <p className="text-muted-foreground">
-                        Escolha uma categoria acima para ver o ícone correspondente
+                      <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Adicionar Imagem</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Faça upload de uma imagem que represente sua vantagem
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="imagem-upload"
+                      />
+                      <label htmlFor="imagem-upload">
+                        <Button type="button" variant="outline">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Escolher Imagem
+                        </Button>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        PNG, JPG até 5MB
                       </p>
                     </div>
                   )}
-
-                  {/* Grid de todos os ícones disponíveis */}
-                  <div className="mt-6">
-                    <p className="text-sm font-medium mb-3">Ícones por Categoria:</p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {categorias.map((categoria) => {
-                        const Icone = categoriaIcones[categoria] || Package;
-                        const isSelected = formData.categoria === categoria;
-                        return (
-                          <button
-                            key={categoria}
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, categoria }))}
-                            className={`p-3 rounded-lg border-2 transition-all ${
-                              isSelected
-                                ? "border-campus-purple-500 bg-campus-purple-50"
-                                : "border-muted hover:border-campus-purple-300 hover:bg-muted/50"
-                            }`}
-                            title={categoria}
-                          >
-                            <Icone className={`h-6 w-6 mx-auto ${
-                              isSelected ? "text-campus-purple-600" : "text-muted-foreground"
-                            }`} />
-                            <p className={`text-xs mt-2 text-center ${
-                              isSelected ? "text-campus-purple-700 font-medium" : "text-muted-foreground"
-                            }`}>
-                              {categoria}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -284,8 +347,12 @@ export default function NovaVantagemPage() {
                 {formData.titulo ? (
                   <>
                     <div className="aspect-video bg-gradient-to-br from-campus-purple-100 to-campus-blue-100 rounded-lg flex items-center justify-center">
-                      {formData.categoria ? (
-                        <IconeSelecionado className="h-24 w-24 text-campus-purple-600" />
+                      {imagemPreview ? (
+                        <img
+                          src={imagemPreview}
+                          alt="Preview"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
                       ) : (
                         <Gift className="h-12 w-12 text-campus-purple-600" />
                       )}
@@ -359,12 +426,11 @@ export default function NovaVantagemPage() {
             <div className="space-y-3">
               <Button
                 type="submit"
-                className="w-full"
-                disabled={!isFormValid() || createRewardMutation.isPending}
-                size="lg"
+                className="w-full bg-gradient-to-r from-campus-purple-500 to-campus-blue-500 hover:from-campus-purple-600 hover:to-campus-blue-600"
+                disabled={!isFormValid() || isSalvando}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {createRewardMutation.isPending ? "Criando..." : "Criar Vantagem"}
+                {isSalvando ? "Salvando..." : "Salvar Alterações"}
               </Button>
               
               <Link href="/empresa/vantagens">
@@ -380,3 +446,4 @@ export default function NovaVantagemPage() {
     </div>
   );
 }
+

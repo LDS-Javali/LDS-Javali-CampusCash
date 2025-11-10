@@ -95,10 +95,12 @@ export function useUploadRewardImage() {
       companyService.uploadRewardImage(rewardId, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company", "rewards"] });
+      queryClient.invalidateQueries({ queryKey: ["company", "statistics"] });
       toast.success("Imagem da vantagem atualizada com sucesso!");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Erro ao fazer upload da imagem");
+      // Não mostra toast de erro aqui, será tratado no componente
+      throw error;
     },
   });
 }
@@ -163,13 +165,6 @@ export function useValidateCoupon() {
   return useMutation({
     mutationFn: (data: ValidateCouponRequest) =>
       companyService.validateCoupon(data),
-    onSuccess: (response) => {
-      if (response.valid) {
-        toast.success("Cupom válido!");
-      } else {
-        toast.error(response.message || "Cupom inválido");
-      }
-    },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao validar cupom");
     },

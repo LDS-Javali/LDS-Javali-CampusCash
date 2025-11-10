@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { 
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
   CoinBadge,
   Card,
   CardContent,
@@ -14,9 +14,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 } from "@/components/design-system";
-import { 
+import {
   Gift,
   Plus,
   Edit3,
@@ -27,93 +27,98 @@ import {
   Filter,
   ArrowRight,
   Building2,
-  Calendar
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
-import { staggerContainer, slideUp } from "@/lib/animations";
+import { slideUp } from "@/lib/animations";
 import { toast } from "sonner";
+import { useCompanyRewards, useUpdateRewardStatus, useDeleteReward } from "@/hooks";
+import { getCategoryIcon } from "@/lib/utils/reward-icons";
 
 export default function GerenciarVantagensPage() {
   const [filtroStatus, setFiltroStatus] = useState("todas");
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
-  
-  const vantagens = [
-    {
-      id: "1",
-      titulo: "Desconto 30% Livraria Central",
-      descricao: "Desconto especial em todos os livros didáticos e literatura",
-      custoMoedas: 200,
-      categoria: "Educação",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: true,
-      resgates: 23,
-      receita: 4600,
-      dataCriacao: new Date("2024-01-01"),
-    },
-    {
-      id: "2",
-      titulo: "Almoço Grátis Restaurante Universitário",
-      descricao: "Refeição completa no restaurante universitário",
-      custoMoedas: 150,
-      categoria: "Alimentação",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: true,
-      resgates: 18,
-      receita: 2700,
-      dataCriacao: new Date("2024-01-05"),
-    },
-    {
-      id: "3",
-      titulo: "Desconto 20% Lanchonete",
-      descricao: "Desconto em lanches e bebidas",
-      custoMoedas: 100,
-      categoria: "Alimentação",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: false,
-      resgates: 15,
-      receita: 1500,
-      dataCriacao: new Date("2024-01-10"),
-    },
-    {
-      id: "4",
-      titulo: "Acesso Premium Academia",
-      descricao: "1 mês de acesso premium à academia do campus",
-      custoMoedas: 300,
-      categoria: "Esportes",
-      imagem: "/placeholder-vantagem.jpg",
-      ativa: true,
-      resgates: 8,
-      receita: 2400,
-      dataCriacao: new Date("2024-01-15"),
-    },
-  ];
+  const { data: rewards, isLoading: rewardsLoading } = useCompanyRewards();
+  const updateStatusMutation = useUpdateRewardStatus();
+  const deleteRewardMutation = useDeleteReward();
 
-  const vantagensFiltradas = vantagens.filter((vantagem) => {
-    if (filtroStatus === "ativas") return vantagem.ativa;
-    if (filtroStatus === "inativas") return !vantagem.ativa;
-    return true;
-  });
+  // Mapear dados da API para o formato esperado pelo frontend
+  const vantagens = useMemo(
+    () =>
+      rewards?.map((reward) => ({
+        id: reward.ID,
+        titulo: reward.Title,
+        descricao: reward.Description,
+        custoMoedas: reward.Cost,
+        categoria: reward.Category,
+        imagem: reward.ImageURL || "/placeholder-vantagem.jpg",
+        ativa: reward.Active,
+        dataCriacao: new Date(reward.CreatedAt),
+      })) || [],
+    [rewards]
+  );
+
+  const vantagensFiltradas = useMemo(
+    () =>
+      vantagens.filter((vantagem) => {
+        if (filtroStatus === "ativas") return vantagem.ativa;
+        if (filtroStatus === "inativas") return !vantagem.ativa;
+        return true;
+      }),
+    [vantagens, filtroStatus]
+  );
+
+  const contadores = useMemo(
+    () => ({
+      todas: vantagens.length,
+      ativas: vantagens.filter((v) => v.ativa).length,
+      inativas: vantagens.filter((v) => !v.ativa).length,
+    }),
+    [vantagens]
+  );
+
+  if (rewardsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Gerenciar Vantagens</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-campus-purple-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando vantagens...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleToggleStatus = async (id: string) => {
+    const reward = vantagens.find((v) => v.id === id);
+    if (!reward) return;
+
     try {
-      // Simular toggle
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success("Status atualizado com sucesso!");
+      await updateStatusMutation.mutateAsync({
+        rewardId: parseInt(id),
+        active: !reward.ativa,
+      });
     } catch (error) {
-      toast.error("Erro ao atualizar status");
+      // Erro já é tratado pelo hook
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      // Simular exclusão
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success("Vantagem excluída com sucesso!");
+      await deleteRewardMutation.mutateAsync(parseInt(id));
       setShowDeleteModal(null);
+      // Se após deletar não houver mais itens no filtro atual, voltar para "todas"
+      const remaining = vantagens.filter((v) => v.id !== id);
+      if (filtroStatus === "ativas" && remaining.filter((v) => v.ativa).length === 0) {
+        setFiltroStatus("todas");
+      } else if (filtroStatus === "inativas" && remaining.filter((v) => !v.ativa).length === 0) {
+        setFiltroStatus("todas");
+      }
     } catch (error) {
-      toast.error("Erro ao excluir vantagem");
+      // Erro já é tratado pelo hook
     }
   };
 
@@ -130,21 +135,17 @@ export default function GerenciarVantagensPage() {
               Gerencie suas vantagens oferecidas aos estudantes
             </p>
           </div>
-          <Button
-            onClick={() => {}}
-            variant="default"
-          >
-            Nova Vantagem
-          </Button>
+          <Link href="/empresa/vantagens/nova">
+            <Button variant="default">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Vantagem
+            </Button>
+          </Link>
         </div>
       </div>
 
       {/* Filtros */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
@@ -158,21 +159,21 @@ export default function GerenciarVantagensPage() {
                   size="sm"
                   onClick={() => setFiltroStatus("todas")}
                 >
-                  Todas ({vantagens.length})
+                  Todas ({contadores.todas})
                 </Button>
                 <Button
                   variant={filtroStatus === "ativas" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setFiltroStatus("ativas")}
                 >
-                  Ativas ({vantagens.filter(v => v.ativa).length})
+                  Ativas ({contadores.ativas})
                 </Button>
                 <Button
                   variant={filtroStatus === "inativas" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setFiltroStatus("inativas")}
                 >
-                  Inativas ({vantagens.filter(v => !v.ativa).length})
+                  Inativas ({contadores.inativas})
                 </Button>
               </div>
               <div className="text-sm text-muted-foreground ml-auto">
@@ -184,33 +185,38 @@ export default function GerenciarVantagensPage() {
       </motion.div>
 
       {/* Grid de Vantagens */}
-      <motion.div
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        {vantagensFiltradas.map((vantagem) => (
-          <motion.div key={vantagem.id} variants={slideUp}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <AnimatePresence>
+          {vantagensFiltradas.map((vantagem) => (
+            <motion.div
+              key={vantagem.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
             <Card className="h-full hover:shadow-card-lg transition-all duration-300 group">
               <div className="relative">
                 <div className="aspect-video bg-gradient-to-br from-campus-purple-100 to-campus-blue-100 rounded-t-lg flex items-center justify-center">
-                  <Gift className="h-12 w-12 text-campus-purple-600" />
+                  {(() => {
+                    const Icone = getCategoryIcon(vantagem.categoria);
+                    return <Icone className="h-16 w-16 text-campus-purple-600" />;
+                  })()}
                 </div>
                 <Badge className="absolute top-3 left-3 bg-campus-gold-100 text-campus-gold-700">
                   {vantagem.categoria}
                 </Badge>
-                <Badge 
+                <Badge
                   className={`absolute top-3 right-3 ${
-                    vantagem.ativa 
-                      ? "bg-green-100 text-green-700" 
+                    vantagem.ativa
+                      ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-700"
                   }`}
                 >
                   {vantagem.ativa ? "Ativa" : "Inativa"}
                 </Badge>
               </div>
-              
+
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <div>
@@ -225,17 +231,10 @@ export default function GerenciarVantagensPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Custo:</span>
-                      <CoinBadge amount={vantagem.custoMoedas} variant="compact" />
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Resgates:</span>
-                      <span className="font-medium">{vantagem.resgates}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Receita:</span>
-                      <span className="font-medium text-campus-gold-600">
-                        {vantagem.receita} moedas
-                      </span>
+                      <CoinBadge
+                        amount={vantagem.custoMoedas}
+                        variant="compact"
+                      />
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Criada em:</span>
@@ -265,16 +264,25 @@ export default function GerenciarVantagensPage() {
                         </>
                       )}
                     </Button>
-                    
+
                     <Link href={`/empresa/vantagens/${vantagem.id}/editar`}>
                       <Button variant="outline" size="sm">
                         <Edit3 className="h-4 w-4" />
                       </Button>
                     </Link>
 
-                    <Dialog open={showDeleteModal === vantagem.id} onOpenChange={(open) => setShowDeleteModal(open ? vantagem.id : null)}>
+                    <Dialog
+                      open={showDeleteModal === vantagem.id}
+                      onOpenChange={(open) =>
+                        setShowDeleteModal(open ? vantagem.id : null)
+                      }
+                    >
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
@@ -284,10 +292,12 @@ export default function GerenciarVantagensPage() {
                         </DialogHeader>
                         <div className="space-y-4">
                           <p className="text-muted-foreground">
-                            Tem certeza que deseja excluir a vantagem "{vantagem.titulo}"?
+                            Tem certeza que deseja excluir a vantagem "
+                            {vantagem.titulo}"?
                           </p>
                           <p className="text-sm text-red-600">
-                            Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
+                            Esta ação não pode ser desfeita e todos os dados
+                            relacionados serão perdidos.
                           </p>
                           <div className="flex gap-3">
                             <Button
@@ -312,9 +322,10 @@ export default function GerenciarVantagensPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        ))}
-      </motion.div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
       {/* Empty State */}
       {vantagensFiltradas.length === 0 && (
@@ -329,10 +340,11 @@ export default function GerenciarVantagensPage() {
             Nenhuma vantagem encontrada
           </h3>
           <p className="text-muted-foreground mb-4">
-            {filtroStatus === "todas" 
+            {filtroStatus === "todas"
               ? "Você ainda não criou nenhuma vantagem"
-              : `Nenhuma vantagem ${filtroStatus === "ativas" ? "ativa" : "inativa"} encontrada`
-            }
+              : `Nenhuma vantagem ${
+                  filtroStatus === "ativas" ? "ativa" : "inativa"
+                } encontrada`}
           </p>
           {filtroStatus === "todas" && (
             <Link href="/empresa/vantagens/nova">

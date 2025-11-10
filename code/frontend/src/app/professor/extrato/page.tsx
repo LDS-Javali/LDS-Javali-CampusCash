@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { 
-  
+import {
   CoinBadge,
   Card,
   CardContent,
@@ -16,11 +15,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Badge
+  Badge,
 } from "@/components/design-system";
-import { 
-  Download, 
-  Filter, 
+import {
+  Filter,
   Calendar,
   Search,
   ArrowLeft,
@@ -28,9 +26,11 @@ import {
   GraduationCap,
   Users,
   Eye,
-  EyeOff
+  EyeOff,
 } from "lucide-react";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import { useProfessorTransactions, useProfessorBalance } from "@/hooks";
+import { useAuthStore } from "@/store";
 
 export default function ProfessorExtrato() {
   const [filtros, setFiltros] = useState({
@@ -40,75 +40,127 @@ export default function ProfessorExtrato() {
     busca: "",
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const { user } = useAuthStore();
 
-  
-  const distribuicoes = [
-    {
-      id: "1",
-      alunoId: "1",
-      alunoNome: "João Silva Santos",
-      alunoCurso: "Engenharia de Software",
-      quantidade: 50,
-      motivo: "Excelente participação na aula de Matemática. Demonstrou conhecimento sólido dos conceitos e contribuiu ativamente para as discussões em sala.",
-      data: new Date("2024-01-15T10:30:00"),
-      saldoApos: 850,
-    },
-    {
-      id: "2",
-      alunoId: "2", 
-      alunoNome: "Maria Santos Costa",
-      alunoCurso: "Ciência da Computação",
-      quantidade: 75,
-      motivo: "Boa apresentação do projeto final. O trabalho demonstrou criatividade e domínio técnico dos conceitos estudados.",
-      data: new Date("2024-01-14T14:20:00"),
-      saldoApos: 900,
-    },
-    {
-      id: "3",
-      alunoId: "3",
-      alunoNome: "Pedro Costa Lima",
-      alunoCurso: "Sistemas de Informação",
-      quantidade: 25,
-      motivo: "Pontualidade exemplar nas aulas e participação consistente ao longo do semestre.",
-      data: new Date("2024-01-13T16:45:00"),
-      saldoApos: 925,
-    },
-    {
-      id: "4",
-      alunoId: "4",
-      alunoNome: "Ana Lima Oliveira",
-      alunoCurso: "Engenharia de Software",
-      quantidade: 100,
-      motivo: "Trabalho em equipe excepcional. Liderou o grupo com eficiência e contribuiu significativamente para o sucesso do projeto.",
-      data: new Date("2024-01-12T09:15:00"),
-      saldoApos: 1025,
-    },
-    {
-      id: "5",
-      alunoId: "5",
-      alunoNome: "Carlos Oliveira Silva",
-      alunoCurso: "Ciência da Computação",
-      quantidade: 60,
-      motivo: "Resolução criativa de problemas complexos durante as atividades práticas. Demonstrou pensamento analítico avançado.",
-      data: new Date("2024-01-11T08:00:00"),
-      saldoApos: 1085,
-    },
-  ];
+  const { data: transactions, isLoading: transactionsLoading } =
+    useProfessorTransactions();
+  const { data: balance, isLoading: balanceLoading } = useProfessorBalance();
 
-  const saldoAtual = 850;
-  const totalDistribuido = distribuicoes.reduce((sum, dist) => sum + dist.quantidade, 0);
+  // Filtrar apenas distribuições do professor para alunos
+  // Excluir recargas do sistema (FromUserID = null) e resgates (Type = "redeem")
+  // Excluir também distribuições automáticas (créditos semestrais)
+  const transacoesFiltradas = transactions?.transactions?.filter(
+    (transacao) => 
+      transacao.FromUserID != null && 
+      Number(transacao.FromUserID) === Number(user?.id) &&
+      transacao.Type === "give" &&
+      transacao.ToUserID != null && // Deve ter um aluno como destinatário
+      !transacao.Message?.toLowerCase().includes("crédito semestral") &&
+      !transacao.Message?.toLowerCase().includes("distribuição automática")
+  ) || [];
+
+  // Mapear dados da API para o formato esperado pelo frontend
+  const distribuicoes = transacoesFiltradas.map((transacao) => ({
+    id: String(transacao.ID),
+    alunoId: transacao.ToUserID?.toString() || "",
+    alunoNome: transacao.ToUserName || transacao.ToUserEmail || `Aluno ${transacao.ToUserID}`,
+    alunoCurso: "Curso", // Não temos curso na API
+    quantidade: transacao.Amount,
+    motivo: transacao.Message || "Distribuição de moedas",
+    data: new Date(transacao.CreatedAt),
+    saldoApos: 0, // Não temos saldo após na API
+  }));
+
+  // A API retorna saldoMoedas, mas também pode retornar balance
+  const saldoAtual = (balance?.saldoMoedas != null ? Number(balance.saldoMoedas) : null) 
+    || (balance?.balance != null ? Number(balance.balance) : null)
+    || 0;
+  const totalDistribuido = distribuicoes.reduce(
+    (sum, dist) => sum + dist.quantidade,
+    0
+  );
   const totalDistribuicoes = distribuicoes.length;
-  const alunosUnicos = new Set(distribuicoes.map(d => d.alunoId)).size;
+  const alunosUnicos = new Set(distribuicoes.map((d) => d.alunoId)).size;
 
   const distribuicoesFiltradas = distribuicoes.filter((distribuicao) => {
-    if (filtros.aluno && !distribuicao.alunoNome.toLowerCase().includes(filtros.aluno.toLowerCase())) {
+    // Filtro por aluno
+    if (
+      filtros.aluno &&
+      filtros.aluno.trim() !== "" &&
+      !distribuicao.alunoNome
+        .toLowerCase()
+        .includes(filtros.aluno.toLowerCase())
+    ) {
       return false;
     }
-    if (filtros.busca && !distribuicao.motivo.toLowerCase().includes(filtros.busca.toLowerCase())) {
+
+    // Filtro por busca
+    if (
+      filtros.busca &&
+      filtros.busca.trim() !== "" &&
+      !distribuicao.motivo.toLowerCase().includes(filtros.busca.toLowerCase())
+    ) {
       return false;
     }
+
+    // Filtro por data início
+    if (filtros.dataInicio && filtros.dataInicio.trim() !== "") {
+      const dataInicio = new Date(filtros.dataInicio + "T00:00:00");
+      const distribuicaoDate = new Date(distribuicao.data);
+      
+      const dataInicioOnly = new Date(
+        dataInicio.getFullYear(),
+        dataInicio.getMonth(),
+        dataInicio.getDate()
+      );
+      const distribuicaoDateOnly = new Date(
+        distribuicaoDate.getFullYear(),
+        distribuicaoDate.getMonth(),
+        distribuicaoDate.getDate()
+      );
+      
+      if (distribuicaoDateOnly < dataInicioOnly) {
+        return false;
+      }
+    }
+
+    // Filtro por data fim
+    if (filtros.dataFim && filtros.dataFim.trim() !== "") {
+      const dataFim = new Date(filtros.dataFim + "T23:59:59");
+      const distribuicaoDate = new Date(distribuicao.data);
+      
+      const dataFimOnly = new Date(
+        dataFim.getFullYear(),
+        dataFim.getMonth(),
+        dataFim.getDate()
+      );
+      const distribuicaoDateOnly = new Date(
+        distribuicaoDate.getFullYear(),
+        distribuicaoDate.getMonth(),
+        distribuicaoDate.getDate()
+      );
+      
+      if (distribuicaoDateOnly > dataFimOnly) {
+        return false;
+      }
+    }
+
     return true;
   });
+
+  if (transactionsLoading || balanceLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Extrato de Distribuições</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-campus-purple-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando extrato...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleExpandRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -120,15 +172,10 @@ export default function ProfessorExtrato() {
     setExpandedRows(newExpanded);
   };
 
-  const handleExport = () => {
-    // Implementar exportação para CSV/PDF
-    console.log("Exportando extrato...");
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -183,11 +230,7 @@ export default function ProfessorExtrato() {
       </motion.div>
 
       {/* Filtros */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -205,7 +248,9 @@ export default function ProfessorExtrato() {
                   <Input
                     placeholder="Nome do aluno..."
                     value={filtros.aluno}
-                    onChange={(e) => setFiltros(prev => ({ ...prev, aluno: e.target.value }))}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, aluno: e.target.value }))
+                    }
                     className="pl-10"
                   />
                 </div>
@@ -217,7 +262,12 @@ export default function ProfessorExtrato() {
                 <Input
                   type="date"
                   value={filtros.dataInicio}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      dataInicio: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
@@ -227,7 +277,9 @@ export default function ProfessorExtrato() {
                 <Input
                   type="date"
                   value={filtros.dataFim}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({ ...prev, dataFim: e.target.value }))
+                  }
                 />
               </div>
 
@@ -239,7 +291,9 @@ export default function ProfessorExtrato() {
                   <Input
                     placeholder="Palavra-chave..."
                     value={filtros.busca}
-                    onChange={(e) => setFiltros(prev => ({ ...prev, busca: e.target.value }))}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, busca: e.target.value }))
+                    }
                     className="pl-10"
                   />
                 </div>
@@ -251,6 +305,7 @@ export default function ProfessorExtrato() {
 
       {/* Lista de Distribuições */}
       <motion.div
+        key={`distribuicoes-${distribuicoesFiltradas.map(d => d.id).join('-')}`}
         variants={staggerContainer}
         initial="initial"
         animate="animate"
@@ -266,13 +321,19 @@ export default function ProfessorExtrato() {
               <div className="text-center py-8 text-muted-foreground">
                 <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Nenhuma distribuição encontrada</p>
-                <p className="text-sm">Ajuste os filtros para ver mais resultados</p>
+                <p className="text-sm">
+                  Ajuste os filtros para ver mais resultados
+                </p>
               </div>
             ) : (
-              distribuicoesFiltradas.map((distribuicao) => (
+              distribuicoesFiltradas.map((distribuicao) => {
+                if (!distribuicao.id) return null;
+                return (
                 <motion.div
                   key={distribuicao.id}
                   variants={slideUp}
+                  initial="initial"
+                  animate="animate"
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -290,24 +351,25 @@ export default function ProfessorExtrato() {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {distribuicao.data.toLocaleDateString("pt-BR")} às {distribuicao.data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {distribuicao.data.toLocaleDateString("pt-BR")} às{" "}
+                          {distribuicao.data.toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </p>
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                           {distribuicao.motivo}
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <div className="text-lg font-semibold text-green-600">
                           +{distribuicao.quantidade}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          Saldo: {distribuicao.saldoApos}
-                        </div>
                       </div>
-                      
+
                       <Button
                         variant="ghost"
                         size="sm"
@@ -331,7 +393,9 @@ export default function ProfessorExtrato() {
                       className="mt-4 pt-4 border-t"
                     >
                       <div className="space-y-2">
-                        <h5 className="font-medium text-sm">Motivo Completo:</h5>
+                        <h5 className="font-medium text-sm">
+                          Motivo Completo:
+                        </h5>
                         <p className="text-sm text-muted-foreground leading-relaxed">
                           {distribuicao.motivo}
                         </p>
@@ -339,7 +403,8 @@ export default function ProfessorExtrato() {
                     </motion.div>
                   )}
                 </motion.div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
@@ -354,7 +419,8 @@ export default function ProfessorExtrato() {
           className="flex items-center justify-between"
         >
           <p className="text-sm text-muted-foreground">
-            Mostrando {distribuicoesFiltradas.length} de {distribuicoes.length} distribuições
+            Mostrando {distribuicoesFiltradas.length} de {distribuicoes.length}{" "}
+            distribuições
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled>

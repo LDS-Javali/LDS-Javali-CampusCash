@@ -29,6 +29,7 @@ import Link from "next/link";
 import { staggerContainer, slideUp } from "@/lib/animations";
 import { useRewards, useRedeemReward } from "@/hooks";
 import { MarketplaceSkeleton } from "@/components/feedback/loading-states";
+import { getCategoryIcon } from "@/lib/utils/reward-icons";
 
 export default function MarketplacePage() {
   const [filtros, setFiltros] = useState({
@@ -75,29 +76,60 @@ export default function MarketplacePage() {
     "Tech Academy",
   ];
 
-  const vantagensFiltradas = vantagens.filter((vantagem) => {
+  // Mapear dados da API para o formato esperado pelo frontend
+  const vantagensMapeadas =
+    vantagens?.map((reward) => ({
+      id: reward.ID,
+      titulo: reward.Title,
+      descricao: reward.Description,
+      custoMoedas: reward.Cost,
+      categoria: reward.Category,
+      ativa: reward.Active,
+      empresa: reward.CompanyName || "Empresa",
+    })) || [];
+
+  const vantagensFiltradas = vantagensMapeadas.filter((vantagem) => {
+    // Sempre mostrar apenas vantagens ativas
+    if (!vantagem.ativa) {
+      return false;
+    }
+    
     if (
+      filtros.categoria &&
       filtros.categoria !== "todas" &&
       vantagem.categoria !== filtros.categoria
     ) {
       return false;
     }
-    if (filtros.empresa !== "todas" && vantagem.empresa !== filtros.empresa) {
+    if (
+      filtros.empresa &&
+      filtros.empresa !== "todas" &&
+      vantagem.empresa !== filtros.empresa
+    ) {
       return false;
     }
-    if (filtros.precoMin && vantagem.custoMoedas < parseInt(filtros.precoMin)) {
+    if (
+      filtros.precoMin &&
+      filtros.precoMin.trim() !== "" &&
+      vantagem.custoMoedas < parseInt(filtros.precoMin)
+    ) {
       return false;
     }
-    if (filtros.precoMax && vantagem.custoMoedas > parseInt(filtros.precoMax)) {
+    if (
+      filtros.precoMax &&
+      filtros.precoMax.trim() !== "" &&
+      vantagem.custoMoedas > parseInt(filtros.precoMax)
+    ) {
       return false;
     }
     if (
       filtros.busca &&
+      filtros.busca.trim() !== "" &&
       !vantagem.titulo.toLowerCase().includes(filtros.busca.toLowerCase())
     ) {
       return false;
     }
-    return vantagem.ativa;
+    return true;
   });
 
   // Ordenação
@@ -107,10 +139,8 @@ export default function MarketplacePage() {
         return a.custoMoedas - b.custoMoedas;
       case "maior-preco":
         return b.custoMoedas - a.custoMoedas;
-      case "mais-avaliados":
-        return b.avaliacao - a.avaliacao;
-      case "mais-resgatados":
-        return b.resgates - a.resgates;
+      case "nome":
+        return a.titulo.localeCompare(b.titulo);
       default:
         return 0;
     }
@@ -259,11 +289,8 @@ export default function MarketplacePage() {
                     <SelectItem value="relevancia">Relevância</SelectItem>
                     <SelectItem value="menor-preco">Menor Preço</SelectItem>
                     <SelectItem value="maior-preco">Maior Preço</SelectItem>
-                    <SelectItem value="mais-avaliados">
-                      Mais Avaliados
-                    </SelectItem>
-                    <SelectItem value="mais-resgatados">
-                      Mais Resgatados
+                    <SelectItem value="nome">
+                      Nome (A-Z)
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -288,17 +315,14 @@ export default function MarketplacePage() {
             <Card className="h-full flex flex-col hover:shadow-card-lg transition-all duration-300 hover:-translate-y-1 group">
               <div className="relative">
                 <div className="aspect-video bg-gradient-to-br from-campus-purple-100 to-campus-blue-100 rounded-t-lg flex items-center justify-center">
-                  <Gift className="h-12 w-12 text-campus-purple-600" />
+                  {(() => {
+                    const Icone = getCategoryIcon(vantagem.categoria);
+                    return <Icone className="h-16 w-16 text-campus-purple-600" />;
+                  })()}
                 </div>
                 <Badge className="absolute top-3 left-3 bg-campus-gold-100 text-campus-gold-700">
                   {vantagem.categoria}
                 </Badge>
-                <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur rounded-full px-2 py-1">
-                  <Star className="h-3 w-3 fill-campus-gold-400 text-campus-gold-400" />
-                  <span className="text-xs font-medium">
-                    {vantagem.avaliacao}
-                  </span>
-                </div>
               </div>
 
               <CardContent className="p-4 flex-1 flex flex-col">
@@ -323,9 +347,6 @@ export default function MarketplacePage() {
                         {vantagem.custoMoedas}
                       </span>
                       <span className="text-xs">moedas</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {vantagem.resgates} resgates
                     </div>
                   </div>
 

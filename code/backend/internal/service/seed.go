@@ -29,7 +29,10 @@ func SeedInstituicoes(db *gorm.DB) {
 	}
 	
 	for _, inst := range institutions {
-		db.FirstOrCreate(&inst)
+		var existing model.Institution
+		if err := db.Where("name = ?", inst.Name).First(&existing).Error; err != nil {
+			db.Create(&inst)
+		}
 	}
 }
 
@@ -53,14 +56,17 @@ func SeedProfessores(db *gorm.DB) {
 	}
 	
 	for _, prof := range professors {
-		hash, _ := bcrypt.GenerateFromPassword([]byte(prof.Password), bcrypt.DefaultCost)
-		db.FirstOrCreate(&model.User{
-			Name:         prof.Name,
-			Email:        prof.Email,
-			Role:         model.ProfessorRole,
-			PasswordHash: string(hash),
-			Balance:      prof.Balance,
-		})
+		var existing model.User
+		if err := db.Where("email = ?", prof.Email).First(&existing).Error; err != nil {
+			hash, _ := bcrypt.GenerateFromPassword([]byte(prof.Password), bcrypt.DefaultCost)
+			db.Create(&model.User{
+				Name:         prof.Name,
+				Email:        prof.Email,
+				Role:         model.ProfessorRole,
+				PasswordHash: string(hash),
+				Balance:      prof.Balance,
+			})
+		}
 	}
 }
 
@@ -103,27 +109,30 @@ func SeedAlunos(db *gorm.DB) {
 	}
 	
 	for _, student := range students {
-		hash, _ := bcrypt.GenerateFromPassword([]byte("aluno123"), bcrypt.DefaultCost)
-		
-		// Escolher instituição aleatória
-		var selectedInstitution string
-		if len(institutions) > 0 {
-			selectedInstitution = institutions[rand.Intn(len(institutions))].Name
-		} else {
-			selectedInstitution = student.Institution
+		var existing model.User
+		if err := db.Where("email = ?", student.Email).First(&existing).Error; err != nil {
+			hash, _ := bcrypt.GenerateFromPassword([]byte("aluno123"), bcrypt.DefaultCost)
+			
+			// Escolher instituição aleatória
+			var selectedInstitution string
+			if len(institutions) > 0 {
+				selectedInstitution = institutions[rand.Intn(len(institutions))].Name
+			} else {
+				selectedInstitution = student.Institution
+			}
+			
+			db.Create(&model.User{
+				Name:         student.Name,
+				Email:        student.Email,
+				CPF:          &student.CPF,
+				Role:         model.StudentRole,
+				PasswordHash: string(hash),
+				Registration: &student.Registration,
+				Institution:  &selectedInstitution,
+				Course:       &student.Course,
+				Balance:      student.Balance,
+			})
 		}
-		
-		db.FirstOrCreate(&model.User{
-			Name:         student.Name,
-			Email:        student.Email,
-			CPF:          &student.CPF,
-			Role:         model.StudentRole,
-			PasswordHash: string(hash),
-			Registration: &student.Registration,
-			Institution:  &selectedInstitution,
-			Course:       &student.Course,
-			Balance:      student.Balance,
-		})
 	}
 }
 
@@ -148,16 +157,19 @@ func SeedEmpresas(db *gorm.DB) {
 	}
 	
 	for _, company := range companies {
-		hash, _ := bcrypt.GenerateFromPassword([]byte("empresa123"), bcrypt.DefaultCost)
-    db.FirstOrCreate(&model.User{
-			Name:         company.Name,
-			Email:        company.Email,
-			CPF:          &company.CNPJ,
-			Role:         model.CompanyRole,
-        PasswordHash: string(hash),
-			CompanyName:  &company.Name,
-			Balance:      company.Balance,
-		})
+		var existing model.User
+		if err := db.Where("email = ?", company.Email).First(&existing).Error; err != nil {
+			hash, _ := bcrypt.GenerateFromPassword([]byte("empresa123"), bcrypt.DefaultCost)
+			db.Create(&model.User{
+				Name:         company.Name,
+				Email:        company.Email,
+				CPF:          &company.CNPJ,
+				Role:         model.CompanyRole,
+				PasswordHash: string(hash),
+				CompanyName:  &company.Name,
+				Balance:      company.Balance,
+			})
+		}
 	}
 }
 

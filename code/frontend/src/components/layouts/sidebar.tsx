@@ -1,24 +1,21 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { 
-  Home, 
-  Wallet, 
-  ShoppingBag, 
-  Gift, 
-  User, 
+import {
+  Home,
+  Wallet,
+  ShoppingBag,
+  Gift,
   LogOut,
   Menu,
   X,
   GraduationCap,
   Users,
-  Building2
+  Building2,
 } from "lucide-react";
 import { useAuthStore } from "@/store";
 import { useUIStore } from "@/store";
-import { slideUp, staggerChildren } from "@/lib/animations";
 import { UserAvatar } from "@/components/design-system";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,30 +31,34 @@ export function Sidebar({ className }: SidebarProps) {
 
   const getMenuItems = () => {
     if (!user) return [];
-
     switch (user.role) {
-      case "aluno":
+      case "student":
         return [
           { href: "/aluno/dashboard", label: "Dashboard", icon: Home },
           { href: "/aluno/extrato", label: "Extrato", icon: Wallet },
-          { href: "/aluno/marketplace", label: "Marketplace", icon: ShoppingBag },
+          {
+            href: "/aluno/marketplace",
+            label: "Marketplace",
+            icon: ShoppingBag,
+          },
           { href: "/aluno/cupons", label: "Meus Cupons", icon: Gift },
-          { href: "/aluno/perfil", label: "Perfil", icon: User },
         ];
       case "professor":
         return [
           { href: "/professor/dashboard", label: "Dashboard", icon: Home },
-          { href: "/professor/distribuir", label: "Distribuir Moedas", icon: Wallet },
+          {
+            href: "/professor/distribuir",
+            label: "Distribuir Moedas",
+            icon: Wallet,
+          },
           { href: "/professor/extrato", label: "Extrato", icon: GraduationCap },
-          { href: "/professor/perfil", label: "Perfil", icon: User },
         ];
-      case "empresa":
+      case "company":
         return [
           { href: "/empresa/dashboard", label: "Dashboard", icon: Home },
           { href: "/empresa/vantagens", label: "Vantagens", icon: Gift },
           { href: "/empresa/validar", label: "Validar Cupons", icon: Users },
           { href: "/empresa/historico", label: "Histórico", icon: Building2 },
-          { href: "/empresa/perfil", label: "Perfil", icon: User },
         ];
       default:
         return [];
@@ -76,23 +77,21 @@ export function Sidebar({ className }: SidebarProps) {
     <>
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={toggleSidebar}
         />
       )}
 
       {/* Sidebar */}
-      <motion.aside
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
+      <aside
         className={cn(
           "fixed left-0 top-0 z-50 h-full bg-card border-r border-border transition-all duration-300",
-          sidebarOpen ? "w-64" : "w-16",
+          // Desktop: sempre visível, alterna entre expandida (w-64) e colapsada (w-16)
+          "hidden lg:block",
+          sidebarOpen ? "lg:w-64" : "lg:w-16",
+          // Mobile: overlay que aparece/desaparece
+          sidebarOpen && "block w-64",
           className
         )}
       >
@@ -100,18 +99,14 @@ export function Sidebar({ className }: SidebarProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             {sidebarOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
-              >
+              <div className="flex items-center gap-2">
                 <div className="h-8 w-8 bg-gradient-to-br from-campus-purple-500 to-campus-blue-500 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">C</span>
                 </div>
                 <span className="font-bold text-lg">CampusCash</span>
-              </motion.div>
+              </div>
             )}
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -127,25 +122,20 @@ export function Sidebar({ className }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <motion.nav
-            variants={staggerChildren}
-            initial="initial"
-            animate="animate"
-            className="flex-1 p-4 space-y-2"
-          >
+          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
             {menuItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
-              
+
               return (
-                <motion.div key={item.href} variants={slideUp}>
-                  <Link href={item.href}>
+                <Link key={item.href} href={item.href}>
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       className={cn(
                         "w-full justify-start gap-3",
                         sidebarOpen ? "px-3" : "px-2",
-                        isActive && "bg-campus-purple-100 text-campus-purple-700 hover:bg-campus-purple-200"
+                        isActive &&
+                          "bg-campus-purple-100 text-campus-purple-700 hover:bg-campus-purple-200"
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
@@ -154,37 +144,32 @@ export function Sidebar({ className }: SidebarProps) {
                       )}
                     </Button>
                   </Link>
-                </motion.div>
               );
             })}
-          </motion.nav>
+          </nav>
 
           {/* User Section */}
           <div className="p-4 border-t border-border">
             {user && (
               <div className="flex items-center gap-3">
-                <UserAvatar
-                  name={user.name}
-                  size="sm"
-                  animated
-                />
+                <UserAvatar name={user.name || "Usuário"} size="sm" />
                 {sidebarOpen && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex-1 min-w-0"
-                  >
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {user.name}
+                      {user.name || "Usuário"}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">
-                      {user.role}
+                      {user.role === "student"
+                        ? "Aluno"
+                        : user.role === "professor"
+                        ? "Professor"
+                        : "Empresa"}
                     </p>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             )}
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -199,7 +184,7 @@ export function Sidebar({ className }: SidebarProps) {
             </Button>
           </div>
         </div>
-      </motion.aside>
+      </aside>
     </>
   );
 }

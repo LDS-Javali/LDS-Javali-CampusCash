@@ -4,6 +4,7 @@ import {
   Company,
   UpdateProfileRequest,
   Statistics,
+  CompanyStatistics,
   Reward,
   CreateRewardRequest,
   ValidateCouponRequest,
@@ -20,11 +21,11 @@ export class CompanyService {
   }
 
   async uploadLogo(file: File): Promise<Company> {
-    return apiClient.upload<Company>(API_ENDPOINTS.COMPANY.LOGO, file);
+    return apiClient.upload<Company>(API_ENDPOINTS.COMPANY.LOGO, file, "logo");
   }
 
-  async getStatistics(): Promise<Statistics> {
-    return apiClient.get<Statistics>(API_ENDPOINTS.COMPANY.STATISTICS);
+  async getStatistics(): Promise<CompanyStatistics> {
+    return apiClient.get<CompanyStatistics>(API_ENDPOINTS.COMPANY.STATISTICS);
   }
 
   async getValidations(): Promise<any[]> {
@@ -42,7 +43,8 @@ export class CompanyService {
   async uploadRewardImage(rewardId: number, file: File): Promise<Reward> {
     return apiClient.upload<Reward>(
       `${API_ENDPOINTS.COMPANY.REWARDS}/${rewardId}/image`,
-      file
+      file,
+      "image"
     );
   }
 
@@ -77,6 +79,10 @@ export class CompanyService {
       API_ENDPOINTS.COMPANY.VALIDATE_COUPON,
       data
     );
+  }
+
+  async getCouponByHash(hash: string): Promise<any> {
+    return apiClient.get<any>(`${API_ENDPOINTS.COMPANY.GET_COUPON_BY_HASH}/${hash}`);
   }
 }
 

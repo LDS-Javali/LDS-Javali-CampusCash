@@ -41,12 +41,12 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData: ApiError = await response.json().catch(() => ({
-          error: "Network Error",
-          message: "Failed to parse error response",
+          error: "Erro de rede",
+          message: "Falha ao processar resposta de erro",
         }));
 
         throw new Error(
-          errorData.message || errorData.error || "Request failed"
+          errorData.message || errorData.error || "Falha na requisição"
         );
       }
 
@@ -57,12 +57,12 @@ class ApiClient {
 
       if (error instanceof Error) {
         if (error.name === "AbortError") {
-          throw new Error("Request timeout");
+          throw new Error("Tempo de requisição esgotado");
         }
         throw error;
       }
 
-      throw new Error("Unknown error occurred");
+      throw new Error("Erro desconhecido ocorreu");
     }
   }
 
@@ -95,9 +95,9 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 
-  async upload<T>(endpoint: string, file: File): Promise<T> {
+  async upload<T>(endpoint: string, file: File, fieldName: string = "file"): Promise<T> {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append(fieldName, file);
 
     const token =
       typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
@@ -112,10 +112,10 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData: ApiError = await response.json().catch(() => ({
-        error: "Upload Error",
-        message: "Failed to upload file",
+        error: "Erro no upload",
+        message: "Falha ao fazer upload do arquivo",
       }));
-      throw new Error(errorData.message || errorData.error || "Upload failed");
+      throw new Error(errorData.message || errorData.error || "Falha no upload");
     }
 
     return response.json();

@@ -4,3 +4,4 @@ export * from "./useStudent";
 export * from "./useProfessor";
 export * from "./useCompany";
 export * from "./useMarketplace";
+export * from "./useNotifications";
