@@ -283,20 +283,20 @@ export default function LandingPage() {
             estudantil
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Link href="/cadastro/aluno">
+            <Link className="flex flex-1" href="/cadastro/aluno">
               <Button
                 size="lg"
                 variant="secondary"
-                className="text-lg px-10 py-6 bg-white text-purple-600 hover:bg-gray-100 shadow-2xl hover:shadow-white/50 transition-all duration-300 transform hover:scale-105"
+                className="flex-1 text-lg px-10 py-6 bg-white text-purple-600 hover:bg-gray-100 shadow-2xl hover:shadow-white/50 transition-all duration-300 transform hover:scale-105"
               >
                 Cadastrar como Aluno
                 <GraduationCap className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link href="/cadastro/empresa">
+            <Link className="flex flex-1" href="/cadastro/empresa">
               <Button
                 size="lg"
-                className="text-lg px-10 py-6 border-2 border-white text-white bg-transparent hover:bg-white hover:text-purple-600 backdrop-blur transition-all duration-300"
+                className="flex-1 text-lg px-10 py-6 border-2 border-white text-white bg-transparent hover:bg-white hover:text-purple-600 backdrop-blur transition-all duration-300"
               >
                 Cadastrar como Empresa
                 <Building2 className="ml-2 h-5 w-5" />

@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"strings"
 

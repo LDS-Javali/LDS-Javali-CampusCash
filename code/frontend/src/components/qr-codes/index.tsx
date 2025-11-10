@@ -86,11 +86,85 @@ export function QRCodeScanner({
   const [isScanning, setIsScanning] = useState(false);
   const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
   const scannerRef = useRef<HTMLDivElement>(null);
+  const scannerId = useRef(`qr-scanner-${Date.now()}-${Math.random()}`);
+
+  const stopScanning = () => {
+    if (scanner) {
+      try {
+        const clearPromise = scanner.clear();
+        if (clearPromise && typeof clearPromise.then === 'function') {
+          clearPromise
+            .then(() => {
+              // Limpar o conteúdo após o scanner limpar
+              if (scannerRef.current && scannerRef.current.parentNode) {
+                try {
+                  scannerRef.current.innerHTML = '';
+                } catch (e) {
+                  // Ignorar erros
+                }
+              }
+            })
+            .catch(() => {
+              // Se falhar, tentar limpar manualmente
+              if (scannerRef.current && scannerRef.current.parentNode) {
+                try {
+                  scannerRef.current.innerHTML = '';
+                } catch (e) {
+                  // Ignorar erros
+                }
+              }
+            });
+        } else {
+          // Se não retornar promise, limpar imediatamente
+          if (scannerRef.current && scannerRef.current.parentNode) {
+            try {
+              scannerRef.current.innerHTML = '';
+            } catch (e) {
+              // Ignorar erros
+            }
+          }
+        }
+      } catch (error) {
+        // Se der erro, tentar limpar manualmente
+        if (scannerRef.current && scannerRef.current.parentNode) {
+          try {
+            scannerRef.current.innerHTML = '';
+          } catch (e) {
+            // Ignorar erros
+          }
+        }
+      }
+      setScanner(null);
+      setIsScanning(false);
+    }
+  };
 
   const startScanning = () => {
     if (scannerRef.current && !isScanning) {
+      // Parar scanner anterior se existir
+      if (scanner) {
+        stopScanning();
+        // Aguardar um pouco para garantir que a limpeza foi concluída
+        setTimeout(() => {
+          iniciarNovoScanner();
+        }, 100);
+      } else {
+        iniciarNovoScanner();
+      }
+    }
+  };
+
+  const iniciarNovoScanner = () => {
+    if (!scannerRef.current) return;
+
+    try {
+      // Limpar qualquer conteúdo anterior
+      if (scannerRef.current.parentNode) {
+        scannerRef.current.innerHTML = '';
+      }
+      
       const newScanner = new Html5QrcodeScanner(
-        scannerRef.current.id,
+        scannerId.current,
         {
           qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0,
@@ -105,7 +179,8 @@ export function QRCodeScanner({
           stopScanning();
         },
         (error) => {
-          if (onScanError) {
+          // Ignorar erros de leitura contínua
+          if (onScanError && error && !error.includes("NotFoundException")) {
             onScanError(error);
           }
         }
@@ -113,37 +188,47 @@ export function QRCodeScanner({
 
       setScanner(newScanner);
       setIsScanning(true);
-    }
-  };
-
-  const stopScanning = () => {
-    if (scanner) {
-      scanner.clear();
-      setScanner(null);
-      setIsScanning(false);
+    } catch (error) {
+      console.error("Erro ao iniciar scanner:", error);
+      if (onScanError) {
+        onScanError("Erro ao iniciar o scanner de QR Code");
+      }
     }
   };
 
   useEffect(() => {
     return () => {
+      // Cleanup ao desmontar o componente
       if (scanner) {
-        scanner.clear();
+        try {
+          const clearPromise = scanner.clear();
+          if (clearPromise && typeof clearPromise.then === 'function') {
+            clearPromise.catch(() => {
+              // Ignorar erros
+            });
+          }
+        } catch (error) {
+          // Ignorar erros
+        }
+        setScanner(null);
+      }
+      // Limpar o container apenas se ainda estiver no DOM
+      if (scannerRef.current && scannerRef.current.parentNode) {
+        try {
+          scannerRef.current.innerHTML = '';
+        } catch (error) {
+          // Ignorar erros
+        }
       }
     };
   }, [scanner]);
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5" />
-          Scanner QR Code
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className={className}>
+      <div className="space-y-4">
         <div 
           ref={scannerRef}
-          id="qr-scanner"
+          id={scannerId.current}
           className="aspect-square bg-muted rounded-lg flex items-center justify-center"
         >
           {!isScanning && (
@@ -172,8 +257,8 @@ export function QRCodeScanner({
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

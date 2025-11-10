@@ -1,6 +1,7 @@
 package service
 
 import (
+	"campuscash-backend/config"
 	"campuscash-backend/internal/model"
 	"fmt"
 	"log"
@@ -10,21 +11,23 @@ import (
 )
 
 type CronService struct {
-	db *gorm.DB
+	db              *gorm.DB
+	notificationSvc *NotificationService
 }
 
-func NewCronService(db *gorm.DB) *CronService {
-	return &CronService{db: db}
+func NewCronService(db *gorm.DB, notificationSvc *NotificationService) *CronService {
+	return &CronService{db: db, notificationSvc: notificationSvc}
 }
 
 func (s *CronService) StartCronJob() {
-	ticker := time.NewTicker(60 * time.Second)
+	interval := time.Duration(config.CronIntervalSeconds) * time.Second
+	ticker := time.NewTicker(interval)
 	go func() {
 		for range ticker.C {
 			s.distributeCoinsToProfessors()
 		}
 	}()
-	log.Println("Cron job started - distributing coins every 60 seconds")
+	log.Printf("Cron job started - distributing %d coins every %d seconds", config.CronCoinsAmount, config.CronIntervalSeconds)
 }
 
 func (s *CronService) distributeCoinsToProfessors() {
@@ -34,13 +37,12 @@ func (s *CronService) distributeCoinsToProfessors() {
 		return
 	}
 
-	coinsToAdd := uint(100) // 100 coins every 60 seconds for demo
+	coinsToAdd := config.CronCoinsAmount
 	distributedCount := 0
 
 	for _, professor := range professors {
-
-		professor.Balance += coinsToAdd
-		if err := s.db.Save(&professor).Error; err != nil {
+		newBalance := professor.Balance + coinsToAdd
+		if err := s.db.Model(&professor).Update("balance", newBalance).Error; err != nil {
 			log.Printf("Error updating professor %d balance: %v", professor.ID, err)
 			continue
 		}
@@ -57,6 +59,21 @@ func (s *CronService) distributeCoinsToProfessors() {
 
 		if err := s.db.Create(&transaction).Error; err != nil {
 			log.Printf("Error creating transaction for professor %d: %v", professor.ID, err)
+			continue
+		}
+
+		// Criar notificação para o professor
+		if s.notificationSvc != nil {
+			if err := s.notificationSvc.CreateNotification(
+				professor.ID,
+					model.NotificationTypeReceiveCoins,
+					"Moedas Recebidas",
+				fmt.Sprintf("Você recebeu %d moedas do sistema automaticamente", coinsToAdd),
+			); err != nil {
+				log.Printf("Error creating notification for professor %d: %v", professor.ID, err)
+			} else {
+				log.Printf("Notification sent to professor %d", professor.ID)
+			}
 		}
 
 		distributedCount++

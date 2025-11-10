@@ -63,9 +63,6 @@ export default function CadastroEmpresaPage() {
           className="text-center mb-8"
         >
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="h-12 w-12 bg-gradient-to-br from-campus-purple-500 to-campus-blue-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">C</span>
-            </div>
             <span className="font-bold text-2xl">CampusCash</span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Cadastro de Empresa</h1>

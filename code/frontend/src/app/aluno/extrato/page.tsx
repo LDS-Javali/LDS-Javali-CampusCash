@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { 
-  
+import {
   TransactionItem,
   CoinBadge,
   Card,
@@ -16,17 +15,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from "@/components/design-system";
-import { 
-  Download, 
-  Filter, 
-  Calendar,
-  Search,
-  ArrowLeft,
-  ArrowRight
-} from "lucide-react";
+import { Filter, Calendar, Search, ArrowLeft, ArrowRight } from "lucide-react";
 import { staggerContainer, slideUp } from "@/lib/animations";
+import { useStudentTransactions, useStudentBalance } from "@/hooks";
 
 export default function AlunoExtrato() {
   const [filtros, setFiltros] = useState({
@@ -36,76 +29,112 @@ export default function AlunoExtrato() {
     busca: "",
   });
 
-  
-  const transacoes = [
-    {
-      id: "1",
-      tipo: "recebimento" as const,
-      valor: 50,
-      descricao: "Excelente participação na aula de Matemática",
-      data: new Date("2024-01-15T10:30:00"),
-      nome: "Prof. Silva",
-      saldoApos: 1250,
-    },
-    {
-      id: "2", 
-      tipo: "resgate" as const,
-      valor: 100,
-      descricao: "Desconto 20% Restaurante Universitário",
-      data: new Date("2024-01-14T14:20:00"),
-      nome: "Restaurante Central",
-      saldoApos: 1200,
-    },
-    {
-      id: "3",
-      tipo: "recebimento" as const,
-      valor: 75,
-      descricao: "Boa apresentação do projeto",
-      data: new Date("2024-01-13T16:45:00"),
-      nome: "Prof. Santos",
-      saldoApos: 1300,
-    },
-    {
-      id: "4",
-      tipo: "resgate" as const,
-      valor: 200,
-      descricao: "Desconto 30% Livraria Central",
-      data: new Date("2024-01-12T09:15:00"),
-      nome: "Livraria Central",
-      saldoApos: 1225,
-    },
-    {
-      id: "5",
-      tipo: "recebimento" as const,
-      valor: 25,
-      descricao: "Pontualidade nas aulas",
-      data: new Date("2024-01-11T08:00:00"),
-      nome: "Prof. Costa",
-      saldoApos: 1425,
-    },
-  ];
+  const { data: transactions, isLoading: transactionsLoading } =
+    useStudentTransactions();
+  const { data: balance, isLoading: balanceLoading } = useStudentBalance();
 
-  const saldoAtual = 1250;
+  // Mapear dados da API para o formato esperado pelo frontend
+  const transacoes =
+    transactions?.transactions?.map((transacao) => ({
+      id: transacao.ID,
+      tipo:
+        transacao.Type === "give"
+          ? ("recebimento" as const)
+          : ("resgate" as const),
+      valor: transacao.Amount,
+      descricao: transacao.Message || "Transação",
+      data: new Date(transacao.CreatedAt),
+      nome:
+        transacao.FromUserName ||
+        (transacao.FromUserID ? "Professor" : "Sistema"),
+      codigo: transacao.Code || undefined,
+    })) || [];
 
-  const handleExport = () => {
-    // Implementar exportação para CSV/PDF
-    console.log("Exportando extrato...");
-  };
+  // A API retorna saldoMoedas (StudentBalanceDTO)
+  const saldoAtual = (balance?.saldoMoedas != null ? Number(balance.saldoMoedas) : null) 
+    || (balance?.balance != null ? Number(balance.balance) : null)
+    || 0;
 
   const transacoesFiltradas = transacoes.filter((transacao) => {
-    if (filtros.tipo !== "todos" && transacao.tipo !== filtros.tipo) {
+    // Filtro por tipo
+    if (filtros.tipo && filtros.tipo !== "todos" && transacao.tipo !== filtros.tipo) {
       return false;
     }
-    if (filtros.busca && !transacao.descricao.toLowerCase().includes(filtros.busca.toLowerCase())) {
+
+    // Filtro por busca
+    if (
+      filtros.busca &&
+      filtros.busca.trim() !== "" &&
+      !transacao.descricao.toLowerCase().includes(filtros.busca.toLowerCase())
+    ) {
       return false;
     }
+
+    // Filtro por data início
+    if (filtros.dataInicio && filtros.dataInicio.trim() !== "") {
+      const dataInicio = new Date(filtros.dataInicio + "T00:00:00");
+      const transacaoDate = new Date(transacao.data);
+      
+      // Comparar apenas a data (ignorar hora)
+      const dataInicioOnly = new Date(
+        dataInicio.getFullYear(),
+        dataInicio.getMonth(),
+        dataInicio.getDate()
+      );
+      const transacaoDateOnly = new Date(
+        transacaoDate.getFullYear(),
+        transacaoDate.getMonth(),
+        transacaoDate.getDate()
+      );
+      
+      if (transacaoDateOnly < dataInicioOnly) {
+        return false;
+      }
+    }
+
+    // Filtro por data fim
+    if (filtros.dataFim && filtros.dataFim.trim() !== "") {
+      const dataFim = new Date(filtros.dataFim + "T23:59:59");
+      const transacaoDate = new Date(transacao.data);
+      
+      // Comparar apenas a data (ignorar hora)
+      const dataFimOnly = new Date(
+        dataFim.getFullYear(),
+        dataFim.getMonth(),
+        dataFim.getDate()
+      );
+      const transacaoDateOnly = new Date(
+        transacaoDate.getFullYear(),
+        transacaoDate.getMonth(),
+        transacaoDate.getDate()
+      );
+      
+      if (transacaoDateOnly > dataFimOnly) {
+        return false;
+      }
+    }
+
     return true;
   });
+
+  if (transactionsLoading || balanceLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Extrato</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-campus-purple-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando extrato...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -119,35 +148,30 @@ export default function AlunoExtrato() {
       </div>
 
       {/* Saldo Atual */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-        className="bg-gradient-to-r from-campus-purple-500 to-campus-blue-500 rounded-xl p-6 text-white"
+      <div 
+        className="relative rounded-xl p-6 text-white shadow-lg"
+        style={{
+          background: 'linear-gradient(to right, #a855f7, #3b82f6)',
+          opacity: 1,
+          visibility: 'visible',
+          display: 'block',
+          zIndex: 1
+        }}
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Saldo Atual</h2>
-            <CoinBadge 
-              amount={saldoAtual} 
-              variant="large" 
-              animated 
-              className="text-white"
-            />
+            <h2 className="text-2xl font-bold mb-2 text-white">Saldo Atual</h2>
+            <CoinBadge amount={saldoAtual} variant="large" light />
           </div>
           <div className="text-right">
             <p className="text-white/80 text-sm">Total de transações</p>
             <p className="text-white font-semibold">{transacoes.length}</p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Filtros */}
-      <motion.div
-        variants={slideUp}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div variants={slideUp} initial="initial" animate="animate">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -162,7 +186,9 @@ export default function AlunoExtrato() {
                 <label className="text-sm font-medium">Tipo</label>
                 <Select
                   value={filtros.tipo}
-                  onValueChange={(value) => setFiltros(prev => ({ ...prev, tipo: value }))}
+                  onValueChange={(value) =>
+                    setFiltros((prev) => ({ ...prev, tipo: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -181,7 +207,12 @@ export default function AlunoExtrato() {
                 <Input
                   type="date"
                   value={filtros.dataInicio}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      dataInicio: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
@@ -191,7 +222,9 @@ export default function AlunoExtrato() {
                 <Input
                   type="date"
                   value={filtros.dataFim}
-                  onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({ ...prev, dataFim: e.target.value }))
+                  }
                 />
               </div>
 
@@ -203,7 +236,9 @@ export default function AlunoExtrato() {
                   <Input
                     placeholder="Descrição..."
                     value={filtros.busca}
-                    onChange={(e) => setFiltros(prev => ({ ...prev, busca: e.target.value }))}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, busca: e.target.value }))
+                    }
                     className="pl-10"
                   />
                 </div>
@@ -221,23 +256,20 @@ export default function AlunoExtrato() {
       >
         <Card>
           <CardHeader>
-            <CardTitle>
-              Transações ({transacoesFiltradas.length})
-            </CardTitle>
+            <CardTitle>Transações ({transacoesFiltradas.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {transacoesFiltradas.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Nenhuma transação encontrada</p>
-                <p className="text-sm">Ajuste os filtros para ver mais resultados</p>
+                <p className="text-sm">
+                  Ajuste os filtros para ver mais resultados
+                </p>
               </div>
             ) : (
               transacoesFiltradas.map((transacao) => (
-                <TransactionItem
-                  key={transacao.id}
-                  {...transacao}
-                />
+                <TransactionItem key={transacao.id} {...transacao} />
               ))
             )}
           </CardContent>
@@ -253,7 +285,8 @@ export default function AlunoExtrato() {
           className="flex items-center justify-between"
         >
           <p className="text-sm text-muted-foreground">
-            Mostrando {transacoesFiltradas.length} de {transacoes.length} transações
+            Mostrando {transacoesFiltradas.length} de {transacoes.length}{" "}
+            transações
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled>

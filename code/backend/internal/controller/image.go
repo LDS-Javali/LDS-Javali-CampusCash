@@ -96,9 +96,9 @@ func UploadRewardImage(db *gorm.DB, imgSvc *service.ImageService) gin.HandlerFun
 			return
 		}
 
-		reward.ImageData = imgData
-		if err := db.Save(&reward).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
+		// Atualizar apenas o campo ImageData
+		if err := db.Model(&reward).Update("ImageData", imgData).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image: " + err.Error()})
 			return
 		}
 
@@ -134,7 +134,9 @@ func GetImage(db *gorm.DB) gin.HandlerFunc {
 				return
 			}
 			imgData = reward.ImageData
-			contentType = "image/jpeg" // Default
+			// Detectar contentType baseado nos bytes da imagem
+			imgSvc := service.NewImageService()
+			contentType = imgSvc.GetImageContentType(imgData)
 			
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid image type"})

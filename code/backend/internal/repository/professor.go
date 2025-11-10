@@ -39,6 +39,14 @@ func (r *professorRepository) Update(prof *model.User) error {
 
 func (r *professorRepository) FindAllStudents(institution string) ([]model.User, error) {
 	var students []model.User
-	err := r.db.Where("role = ? AND institution = ?", model.StudentRole, institution).Find(&students).Error
+	var err error
+	
+	// Se institution for vazia, buscar todos os alunos
+	if institution == "" {
+		err = r.db.Where("role = ?", model.StudentRole).Find(&students).Error
+	} else {
+		err = r.db.Where("role = ? AND institution = ?", model.StudentRole, institution).Find(&students).Error
+	}
+	
 	return students, err
 }

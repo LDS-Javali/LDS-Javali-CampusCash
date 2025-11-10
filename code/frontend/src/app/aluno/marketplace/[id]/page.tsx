@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { 
-  
+import {
   CoinBadge,
   Card,
   CardContent,
@@ -16,9 +15,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 } from "@/components/design-system";
-import { 
+import {
   ArrowLeft,
   Gift,
   Building2,
@@ -27,58 +26,81 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
-  ShoppingBag
+  ShoppingBag,
 } from "lucide-react";
 import Link from "next/link";
 import { staggerContainer, slideUp, scaleIn } from "@/lib/animations";
 import { toast } from "sonner";
+import { useRewardById, useStudentBalance, useRedeemReward } from "@/hooks";
+import { getCategoryIcon } from "@/lib/utils/reward-icons";
 
-export default function VantagemDetalhesPage({ params }: { params: { id: string } }) {
+export default function VantagemDetalhesPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter();
   const [isResgatando, setIsResgatando] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  
-  const vantagem = {
-    id: params.id,
-    titulo: "Desconto 30% Livraria Central",
-    descricao: "Desconto especial em todos os livros didáticos e literatura. Válido para compras presenciais e online. Não cumulativo com outras promoções.",
-    descricaoCompleta: `
-      Esta vantagem oferece um desconto de 30% em todos os produtos da Livraria Central, incluindo:
-      
-      • Livros didáticos e acadêmicos
-      • Literatura clássica e contemporânea  
-      • Materiais de estudo e apostilas
-      • Produtos de papelaria
-      
-      O desconto é válido tanto para compras presenciais quanto online, e pode ser utilizado uma vez por aluno. Não é cumulativo com outras promoções em andamento.
-      
-      Para resgatar, apresente o cupom digital na loja ou utilize o código promocional no site da livraria.
-    `,
-    empresa: "Livraria Central",
-    empresaId: "livraria-central",
-    custoMoedas: 200,
-    categoria: "Educação",
-    imagem: "/placeholder-vantagem.jpg",
-    ativa: true,
-    avaliacao: 4.8,
-    resgates: 156,
-    dataValidade: new Date("2024-12-31"),
-    termos: "Válido até 31/12/2024. Não cumulativo com outras promoções. Apresentar cupom digital na loja.",
-  };
+  const { data: reward, isLoading: rewardLoading } = useRewardById(params.id);
+  const { data: balance } = useStudentBalance();
+  const redeemRewardMutation = useRedeemReward();
 
-  const saldoAtual = 1250; // Mock - substituir por dados reais
-  const podeResgatar = saldoAtual >= vantagem.custoMoedas;
+  // Mapear dados da API para o formato esperado pelo frontend
+  const vantagem = reward
+    ? {
+        id: reward.ID,
+        titulo: reward.Title,
+        descricao: reward.Description,
+        descricaoCompleta: reward.Description, // Usar a mesma descrição
+        empresa: reward.CompanyName || "Empresa",
+        empresaId: reward.CompanyID?.toString() || "",
+        custoMoedas: reward.Cost,
+        categoria: reward.Category,
+        imagem: reward.ImageURL || "/placeholder-vantagem.jpg",
+        ativa: reward.Active,
+        dataValidade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias a partir de agora
+        termos: "Válido por 30 dias. Apresentar cupom digital na loja.",
+      }
+    : {
+        id: params.id,
+        titulo: "",
+        descricao: "",
+        descricaoCompleta: "",
+        empresa: "",
+        empresaId: "",
+        custoMoedas: 0,
+        categoria: "",
+        imagem: "/placeholder-vantagem.jpg",
+        ativa: false,
+        dataValidade: new Date(),
+        termos: "",
+      };
+
+  const saldoAtual = balance?.balance || 0;
+  const podeResgatar = saldoAtual >= vantagem.custoMoedas && vantagem.ativa;
+
+  if (rewardLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Detalhes da Vantagem</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-campus-purple-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando vantagem...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleResgatar = async () => {
     setIsResgatando(true);
     try {
-      // Simular resgate
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await redeemRewardMutation.mutateAsync(parseInt(params.id));
       toast.success("Vantagem resgatada com sucesso!");
       toast.success("Cupom enviado para seu email!");
-      
       setShowConfirmModal(false);
       router.push("/aluno/cupons");
     } catch (error) {
@@ -91,15 +113,13 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
   return (
     <div className="space-y-6">
       {/* Header */}
-            <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Page Title
             </h1>
-            <p className="text-muted-foreground">
-              
-            </p>
+            <p className="text-muted-foreground"></p>
           </div>
         </div>
       </div>
@@ -115,24 +135,22 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
           {/* Imagem */}
           <Card>
             <div className="aspect-video bg-gradient-to-br from-campus-purple-100 to-campus-blue-100 rounded-t-lg flex items-center justify-center">
-              <Gift className="h-24 w-24 text-campus-purple-600" />
+              {(() => {
+                const Icone = getCategoryIcon(vantagem.categoria);
+                return <Icone className="h-24 w-24 text-campus-purple-600" />;
+              })()}
             </div>
             <CardContent className="p-6">
               <div className="flex items-center gap-4 mb-4">
                 <Badge className="bg-campus-gold-100 text-campus-gold-700">
                   {vantagem.categoria}
                 </Badge>
-                <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-campus-gold-400 text-campus-gold-400" />
-                  <span className="text-sm font-medium">{vantagem.avaliacao}</span>
-                  <span className="text-sm text-muted-foreground">({vantagem.resgates} resgates)</span>
-                </div>
               </div>
-              
+
               <h1 className="text-3xl font-bold text-foreground mb-4">
                 {vantagem.titulo}
               </h1>
-              
+
               <div className="flex items-center gap-2 text-muted-foreground mb-6">
                 <Building2 className="h-5 w-5" />
                 <span className="text-lg">{vantagem.empresa}</span>
@@ -169,9 +187,7 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {vantagem.termos}
-              </p>
+              <p className="text-sm text-muted-foreground">{vantagem.termos}</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -194,9 +210,11 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
             <CardContent className="space-y-6">
               {/* Preço */}
               <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Custo em moedas</p>
-                <CoinBadge 
-                  amount={vantagem.custoMoedas} 
+                <p className="text-sm text-muted-foreground mb-2">
+                  Custo em moedas
+                </p>
+                <CoinBadge
+                  amount={vantagem.custoMoedas}
                   variant="large"
                   animated
                 />
@@ -204,11 +222,10 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
 
               {/* Saldo Atual */}
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Seu saldo atual</p>
-                <CoinBadge 
-                  amount={saldoAtual} 
-                  variant="default"
-                />
+                <p className="text-sm text-muted-foreground mb-1">
+                  Seu saldo atual
+                </p>
+                <CoinBadge amount={saldoAtual} variant="default" />
               </div>
 
               {/* Status */}
@@ -222,13 +239,18 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
               {/* Validade */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>Válido até {vantagem.dataValidade.toLocaleDateString("pt-BR")}</span>
+                <span>
+                  Válido até {vantagem.dataValidade.toLocaleDateString("pt-BR")}
+                </span>
               </div>
 
               {/* Botão de Resgate */}
-              <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+              <Dialog
+                open={showConfirmModal}
+                onOpenChange={setShowConfirmModal}
+              >
                 <DialogTrigger asChild>
-                  <Button 
+                  <Button
                     className="w-full bg-gradient-to-r from-campus-purple-500 to-campus-blue-500 hover:from-campus-purple-600 hover:to-campus-blue-600"
                     disabled={!podeResgatar}
                   >
@@ -242,14 +264,21 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
                   <div className="space-y-4">
                     <div className="text-center">
                       <Gift className="h-16 w-16 mx-auto text-campus-purple-600 mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">{vantagem.titulo}</h3>
-                      <p className="text-muted-foreground">{vantagem.empresa}</p>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {vantagem.titulo}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {vantagem.empresa}
+                      </p>
                     </div>
-                    
+
                     <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                       <div className="flex justify-between">
                         <span>Custo:</span>
-                        <CoinBadge amount={vantagem.custoMoedas} variant="compact" />
+                        <CoinBadge
+                          amount={vantagem.custoMoedas}
+                          variant="compact"
+                        />
                       </div>
                       <div className="flex justify-between">
                         <span>Saldo atual:</span>
@@ -257,12 +286,16 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Saldo após resgate:</span>
-                        <CoinBadge amount={saldoAtual - vantagem.custoMoedas} variant="compact" />
+                        <CoinBadge
+                          amount={saldoAtual - vantagem.custoMoedas}
+                          variant="compact"
+                        />
                       </div>
                     </div>
 
                     <p className="text-sm text-muted-foreground text-center">
-                      Após confirmar, um cupom será enviado para seu email e você poderá utilizá-lo presencialmente.
+                      Após confirmar, um cupom será enviado para seu email e
+                      você poderá utilizá-lo presencialmente.
                     </p>
 
                     <div className="flex gap-3">
@@ -287,7 +320,8 @@ export default function VantagemDetalhesPage({ params }: { params: { id: string 
 
               {/* Aviso */}
               <p className="text-xs text-muted-foreground text-center">
-                Ao resgatar, você concorda com os termos e condições desta vantagem.
+                Ao resgatar, você concorda com os termos e condições desta
+                vantagem.
               </p>
             </CardContent>
           </Card>

@@ -23,6 +23,9 @@ var (
 
 	MaxImageSize      int64
 	AllowedImageTypes []string
+
+	CronIntervalSeconds int
+	CronCoinsAmount     uint
 )
 
 func LoadConfig() {
@@ -66,6 +69,20 @@ func LoadConfig() {
 	CronSecret = os.Getenv("CRON_SECRET")
 	if CronSecret == "" {
 		CronSecret = "demo-secret-123"
+	}
+
+	CronIntervalSeconds = 15 // Default: 15 segundos
+	if intervalStr := os.Getenv("CRON_INTERVAL_SECONDS"); intervalStr != "" {
+		if interval, err := strconv.Atoi(intervalStr); err == nil && interval > 0 {
+			CronIntervalSeconds = interval
+		}
+	}
+
+	CronCoinsAmount = 100 // Default: 100 moedas
+	if amountStr := os.Getenv("CRON_COINS_AMOUNT"); amountStr != "" {
+		if amount, err := strconv.ParseUint(amountStr, 10, 32); err == nil {
+			CronCoinsAmount = uint(amount)
+		}
 	}
 
 	MaxImageSize = 5242880

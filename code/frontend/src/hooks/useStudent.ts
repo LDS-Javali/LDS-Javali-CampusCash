@@ -47,6 +47,7 @@ export function useStudentBalance() {
     queryKey: ["student", "balance"],
     queryFn: () => studentService.getBalance(),
     retry: false,
+    refetchInterval: 5000, // Refetch a cada 5 segundos para pegar atualizações
   });
 }
 
@@ -62,14 +63,6 @@ export function useStudentTransactions() {
   return useQuery({
     queryKey: ["student", "transactions"],
     queryFn: () => studentService.getTransactions(),
-    retry: false,
-  });
-}
-
-export function useStudentRewards() {
-  return useQuery({
-    queryKey: ["student", "rewards"],
-    queryFn: () => studentService.getRewards(),
     retry: false,
   });
 }

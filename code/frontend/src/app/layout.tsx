@@ -11,12 +11,14 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "CampusCash - Sistema de Moeda Estudantil",
-  description: "Sistema para estimular o reconhecimento do mérito estudantil através de uma moeda virtual",
+  description:
+    "Sistema para estimular o reconhecimento do mérito estudantil através de uma moeda virtual",
   keywords: ["moeda virtual", "estudantil", "mérito", "universidade", "campus"],
   authors: [{ name: "CampusCash Team" }],
   openGraph: {
     title: "CampusCash - Sistema de Moeda Estudantil",
-    description: "Sistema para estimular o reconhecimento do mérito estudantil através de uma moeda virtual",
+    description:
+      "Sistema para estimular o reconhecimento do mérito estudantil através de uma moeda virtual",
     type: "website",
   },
 };
@@ -27,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
+    <html lang="pt-BR" className={`${inter.variable} light`} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <Providers>
           {children}

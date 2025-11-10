@@ -38,6 +38,7 @@ export function UserAvatar({
   };
 
   const getInitials = (name: string) => {
+    if (!name) return "?";
     return name
       .split(" ")
       .map((n) => n.charAt(0))

@@ -9,14 +9,15 @@ import { ptBR } from "date-fns/locale";
 import { slideUp } from "@/lib/animations";
 
 interface TransactionItemProps {
-  id: string;
+  id: string | number;
   tipo: "recebimento" | "resgate";
   valor: number;
   descricao: string;
   data: Date;
   avatar?: string;
   nome?: string;
-  saldoApos: number;
+  codigo?: string;
+  hash?: string;
   className?: string;
 }
 
@@ -27,12 +28,13 @@ export function TransactionItem({
   data,
   avatar,
   nome,
-  saldoApos,
+  codigo,
+  hash,
   className,
 }: TransactionItemProps) {
   const isRecebimento = tipo === "recebimento";
   const valorFormatted = new Intl.NumberFormat("pt-BR").format(valor);
-  
+
   const getTipoStyles = () => {
     if (isRecebimento) {
       return {
@@ -73,27 +75,46 @@ export function TransactionItem({
             {isRecebimento ? "Recebido" : "Resgatado"}
           </Badge>
           <span className="text-sm text-muted-foreground">
-            {format(data, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            {data instanceof Date
+              ? format(data, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+              : typeof data === "string"
+              ? format(new Date(data), "dd/MM/yyyy 'às' HH:mm", {
+                  locale: ptBR,
+                })
+              : "Data inválida"}
           </span>
         </div>
-        
+
         <p className="text-sm font-medium text-foreground truncate">
           {descricao}
         </p>
-        
+
         {nome && (
           <p className="text-xs text-muted-foreground">
             {isRecebimento ? "De:" : "Para:"} {nome}
           </p>
         )}
+
+        {(codigo || hash) && (
+          <div className="flex items-center gap-2 mt-1">
+            {codigo && (
+              <p className="text-xs text-muted-foreground">
+                Código: <span className="font-mono font-medium">{codigo}</span>
+              </p>
+            )}
+            {hash && (
+              <p className="text-xs text-muted-foreground">
+                Hash: <span className="font-mono font-medium text-xs">{hash.substring(0, 8)}...</span>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="text-right">
         <div className={cn("text-lg font-semibold", styles.valor)}>
-          {isRecebimento ? "+" : "-"}{valorFormatted}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Saldo: {new Intl.NumberFormat("pt-BR").format(saldoApos)}
+          {isRecebimento ? "+" : "-"}
+          {valorFormatted}
         </div>
       </div>
     </motion.div>
