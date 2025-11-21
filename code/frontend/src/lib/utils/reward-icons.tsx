@@ -38,3 +38,5 @@ export function getCategoryIcon(categoria: string | undefined | null): LucideIco
 }
 
 
+
+
