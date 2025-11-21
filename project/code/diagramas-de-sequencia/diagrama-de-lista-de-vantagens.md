@@ -1,31 +1,45 @@
 ```
 @startuml
-title Diagrama de Sequência - Listagem de Vantagens
+title Sequência: Visualizar Lista de Vantagens
 
-actor Aluno
-boundary "Frontend (Aplicação Web)" as Frontend
-control "Serviço de Vantagens (Backend)" as VantagemSvc
-database "Banco de Dados" as DB
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam maxmessagesize 200
+skinparam sequenceParticipant underline
+autonumber
 
-== Fluxo Principal ==
+actor "Usuário (Aluno)" as User
+participant ":Aluno" as Aluno
+participant ":InstituicaoDeEnsino" as Inst
+participant ":EmpresaParceira" as Empresa
 
-Aluno -> Frontend : 1 : solicitarListagemVantagens()
-activate Frontend
+note over User, Aluno: O Aluno já está autenticado e associado a uma Instituição
 
-Frontend -> VantagemSvc : 2 : GET /vantagens
-activate VantagemSvc
+User -> Aluno: 1. solicitarListaVantagens()
+activate Aluno
 
-VantagemSvc -> DB : 3 : select * from Vantagens
-activate DB
-DB --> VantagemSvc : listaVantagens
-deactivate DB
+    ' O Aluno recorre à Instituição para buscar dados globais
+    Aluno -> Inst: 2. listarTodasVantagens()
+    activate Inst
 
-VantagemSvc --> Frontend : listaVantagens
-deactivate VantagemSvc
+        ' A Instituição cria uma lista vazia para agregar tudo
+        Inst -> Inst: 3. listaGeral = new List<Vantagem>()
 
-Frontend --> Aluno : exibirListaVantagens(listaVantagens)
-deactivate Frontend
+        ' Loop para percorrer todas as empresas parceiras da instituição
+        loop Para cada parceiro na lista 'parceiros'
+            Inst -> Empresa: 4. getVantagens()
+            activate Empresa
+            Empresa --> Inst: 5. retorna List<Vantagem>
+            deactivate Empresa
+            
+            Inst -> Inst: 6. listaGeral.addAll(vantagensDaEmpresa)
+        end
+
+    Inst --> Aluno: 7. retorna listaGeral
+    deactivate Inst
+
+Aluno --> User: 8. exibe lista de vantagens
+deactivate Aluno
 
 @enduml
-
 ```
