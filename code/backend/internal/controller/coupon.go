@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -155,14 +154,32 @@ func StudentRedeem(db *gorm.DB, notificationSvc *service.NotificationService) gi
 			)
 		}()
 
-		// Enviar emails
-		go func(studentEmail string, companyID uint, code string) {
+		// Enviar emails formatados (dois emails independentes com tratamento de erro)
+		// Email 1: Para o Aluno
+		go func(studentEmail string, rewardTitle string, code string, companyID uint) {
+			var company model.User
+			companyName := "Empresa Parceira"
+			if err := db.First(&company, companyID).Error; err == nil {
+				if company.CompanyName != nil && *company.CompanyName != "" {
+					companyName = *company.CompanyName
+				} else {
+					companyName = company.Name
+				}
+			}
+			subject := fmt.Sprintf("Cupom de Resgate: %s", rewardTitle)
+			htmlBody := mail.TemplateEmailRedeemStudent(rewardTitle, code, companyName)
+			mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
+		}(studentUser.Email, rew.Title, code, rew.CompanyID)
+
+		// Email 2: Para a Empresa
+		go func(companyID uint, studentName string, studentID uint, rewardTitle string, code string) {
 			var company model.User
 			if err := db.First(&company, companyID).Error; err == nil {
-				_ = mail.SendMail(studentEmail, "Seu cupom CampusCash", "Código: "+code+" - Vantagem: "+rew.Title)
-				_ = mail.SendMail(company.Email, "Novo resgate CampusCash", "Código: "+code+" - Aluno ID: "+strconv.FormatUint(uint64(id), 10))
+				subject := "Nova troca efetuada!"
+				htmlBody := mail.TemplateEmailRedeemCompany(studentName, rewardTitle, code, studentID)
+				mail.SendHTMLMailSafe(company.Email, subject, htmlBody)
 			}
-		}(studentUser.Email, rew.CompanyID, code)
+		}(rew.CompanyID, studentUser.Name, studentUser.ID, rew.Title, code)
 
 		c.JSON(http.StatusOK, createdCoupon)
 	}

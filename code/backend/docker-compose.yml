@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: campuscash-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    networks:
+      - campuscash-network
+    restart: unless-stopped
+
+networks:
+  campuscash-network:
+    driver: bridge
+

@@ -85,3 +85,40 @@ Pretende-se desenvolver um sistema para estimular o reconhecimento do mérito es
 ## Instruções de utilização
 
 Assim que a primeira versão do sistema estiver disponível, deverá complementar com as instruções de utilização. Descreva como instalar eventuais dependências e como executar a aplicação.
+
+### Email em Desenvolvimento (MailHog)
+
+O sistema utiliza **MailHog** para capturar e visualizar emails durante o desenvolvimento, evitando a necessidade de configurar credenciais SMTP reais.
+
+#### Como usar:
+
+1. **Iniciar MailHog:**
+   ```bash
+   cd code/backend
+   docker-compose up -d
+   ```
+
+2. **Acessar interface web:**
+   - Abra seu navegador em: http://localhost:8025
+   - Todos os emails enviados pelo sistema aparecerão aqui
+
+3. **Configuração automática:**
+   - Em modo de desenvolvimento (`GIN_MODE=debug` ou `ENV=development`), o sistema usa MailHog automaticamente se `SMTP_HOST` não estiver configurado
+   - Não é necessário configurar credenciais SMTP em desenvolvimento
+
+4. **Parar MailHog:**
+   ```bash
+   docker-compose down
+   ```
+
+#### Para produção:
+
+Configure as variáveis de ambiente SMTP no arquivo `.env`:
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=seu-email@gmail.com
+SMTP_PASS=sua-senha-de-app
+```
+
+Quando `SMTP_HOST` estiver configurado, o sistema usará o servidor SMTP real em vez do MailHog.

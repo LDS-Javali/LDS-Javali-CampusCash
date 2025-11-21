@@ -18,6 +18,7 @@ var (
 
 	Port    string
 	GinMode string
+	Env     string
 
 	CronSecret string
 
@@ -26,6 +27,8 @@ var (
 
 	CronIntervalSeconds int
 	CronCoinsAmount     uint
+
+	UseMailHog bool
 )
 
 func LoadConfig() {
@@ -41,21 +44,6 @@ func LoadConfig() {
 		DBPath = "file:campuscash.db?cache=shared"
 	}
 
-	SMTPHost = os.Getenv("SMTP_HOST")
-	if SMTPHost == "" {
-		SMTPHost = "smtp.gmail.com"
-	}
-
-	SMTPPort = 587
-	if portStr := os.Getenv("SMTP_PORT"); portStr != "" {
-		if port, err := strconv.Atoi(portStr); err == nil {
-			SMTPPort = port
-		}
-	}
-
-	SMTPUser = os.Getenv("SMTP_USER")
-	SMTPPassword = os.Getenv("SMTP_PASS")
-
 	Port = os.Getenv("PORT")
 	if Port == "" {
 		Port = "8080"
@@ -64,6 +52,46 @@ func LoadConfig() {
 	GinMode = os.Getenv("GIN_MODE")
 	if GinMode == "" {
 		GinMode = "debug"
+	}
+
+	Env = os.Getenv("ENV")
+	if Env == "" {
+		Env = "development"
+	}
+
+	// Detectar se deve usar MailHog em desenvolvimento
+	// MailHog é usado automaticamente se:
+	// 1. Está em modo debug OU ENV=development
+	// 2. E SMTP_HOST não foi configurado explicitamente
+	isDevelopment := GinMode == "debug" || Env == "development"
+	smtpHostEnv := os.Getenv("SMTP_HOST")
+	smtpExplicitlyConfigured := smtpHostEnv != ""
+
+	UseMailHog = isDevelopment && !smtpExplicitlyConfigured
+
+	if UseMailHog {
+		SMTPHost = "localhost"
+		SMTPPort = 1025
+		SMTPUser = ""
+		SMTPPassword = ""
+		log.Println("📧 Using MailHog for email in development mode")
+		log.Println("   Access MailHog web UI at: http://localhost:8025")
+	} else {
+		// Configuração SMTP normal
+		SMTPHost = smtpHostEnv
+		if SMTPHost == "" {
+			SMTPHost = "smtp.gmail.com"
+		}
+
+		SMTPPort = 587
+		if portStr := os.Getenv("SMTP_PORT"); portStr != "" {
+			if port, err := strconv.Atoi(portStr); err == nil {
+				SMTPPort = port
+			}
+		}
+
+		SMTPUser = os.Getenv("SMTP_USER")
+		SMTPPassword = os.Getenv("SMTP_PASS")
 	}
 
 	CronSecret = os.Getenv("CRON_SECRET")

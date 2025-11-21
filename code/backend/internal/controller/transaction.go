@@ -3,6 +3,7 @@ package controller
 import (
 	"campuscash-backend/internal/model"
 	"campuscash-backend/internal/service"
+	"campuscash-backend/pkg/mail"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -27,6 +28,17 @@ func GiveCoins(db *gorm.DB, notificationSvc *service.NotificationService) gin.Ha
 		}
 		professorID := c.GetUint("userID")
 		
+		// Buscar dados do professor e aluno para o email
+		var professor, student model.User
+		if err := db.First(&professor, professorID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "professor não encontrado"})
+			return
+		}
+		if err := db.First(&student, input.ToStudentID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
+			return
+		}
+		
 		// Usar SendCoins do service para evitar duplicação de lógica
 		if err := service.SendCoins(db, professorID, input.ToStudentID, input.Amount, input.Message); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -42,6 +54,13 @@ func GiveCoins(db *gorm.DB, notificationSvc *service.NotificationService) gin.Ha
 				fmt.Sprintf("Você recebeu %d moedas: %s", input.Amount, input.Message),
 			)
 		}()
+		
+		// Enviar email formatado para o aluno
+		go func(profName string, studentEmail string, amount uint, message string) {
+			subject := "Você recebeu moedas!"
+			htmlBody := mail.TemplateEmailCoinsReceived(profName, amount, message)
+			mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
+		}(professor.Name, student.Email, input.Amount, input.Message)
 		
 		c.JSON(http.StatusOK, gin.H{"message": "moedas enviadas"})
 	}
