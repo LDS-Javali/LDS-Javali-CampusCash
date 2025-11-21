@@ -191,7 +191,7 @@ export default function LandingPage() {
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-                  {stat.number.toLocaleString()}
+                  {stat.number.toLocaleString("pt-BR")}
                   {stat.suffix}
                 </div>
                 <div className="text-gray-600 font-medium">{stat.label}</div>
