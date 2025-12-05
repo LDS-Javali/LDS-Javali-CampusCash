@@ -1,6 +1,6 @@
 ```
 @startuml
-title Sequência: Visualizar Lista de Vantagens
+title Diagrama de Sequência: Listagem de Vantagens (Aluno)
 
 skinparam sequenceArrowThickness 2
 skinparam roundcorner 10
@@ -8,38 +8,96 @@ skinparam maxmessagesize 200
 skinparam sequenceParticipant underline
 autonumber
 
-actor "Usuário (Aluno)" as User
-participant ":Aluno" as Aluno
-participant ":InstituicaoDeEnsino" as Inst
-participant ":EmpresaParceira" as Empresa
+actor "Aluno" as Aluno
+boundary "Frontend\n(Next.js)" as Frontend
+control "RewardController\n(Go/Gin)" as Controller
+database "Banco de Dados\n(SQLite)" as DB
 
-note over User, Aluno: O Aluno já está autenticado e associado a uma Instituição
+== Fluxo Principal ==
 
-User -> Aluno: 1. solicitarListaVantagens()
-activate Aluno
+Aluno -> Frontend: 1. Acessa marketplace\n/aluno/marketplace
+activate Frontend
 
-    ' O Aluno recorre à Instituição para buscar dados globais
-    Aluno -> Inst: 2. listarTodasVantagens()
-    activate Inst
+Frontend -> Frontend: 2. Aplicar filtros\n(categoria, preço, busca, ordenação)
 
-        ' A Instituição cria uma lista vazia para agregar tudo
-        Inst -> Inst: 3. listaGeral = new List<Vantagem>()
+Frontend -> Controller: 3. GET /api/rewards\n?categoria=Alimentação&precoMin=10\n&precoMax=100&busca=...&ordenacao=relevancia
+activate Controller
 
-        ' Loop para percorrer todas as empresas parceiras da instituição
-        loop Para cada parceiro na lista 'parceiros'
-            Inst -> Empresa: 4. getVantagens()
-            activate Empresa
-            Empresa --> Inst: 5. retorna List<Vantagem>
-            deactivate Empresa
-            
-            Inst -> Inst: 6. listaGeral.addAll(vantagensDaEmpresa)
-        end
+Controller -> Controller: 4. Inicializar query\nWhere("active = ?", true)
 
-    Inst --> Aluno: 7. retorna listaGeral
-    deactivate Inst
+alt Filtro por categoria
+    Controller -> DB: 5. Where("category = ?", categoria)
+end
 
-Aluno --> User: 8. exibe lista de vantagens
-deactivate Aluno
+alt Filtro por empresa
+    Controller -> DB: 6. Where("company_id = ?", empresa)
+end
+
+alt Filtro por preço mínimo
+    Controller -> DB: 7. Where("cost >= ?", precoMin)
+end
+
+alt Filtro por preço máximo
+    Controller -> DB: 8. Where("cost <= ?", precoMax)
+end
+
+alt Filtro por busca textual
+    Controller -> DB: 9. Where("LOWER(title) LIKE ?\nOR LOWER(description) LIKE ?", busca)
+end
+
+alt Ordenação
+    Controller -> DB: 10. Order por:\n- preco_menor: cost ASC\n- preco_maior: cost DESC\n- nome: title ASC\n- relevancia: created_at DESC
+end
+
+Controller -> DB: 11. Buscar vantagens ativas\nFind(&rewards)
+activate DB
+DB --> Controller: 12. Lista de vantagens
+deactivate DB
+
+Controller -> DB: 13. Buscar empresas relacionadas\nWhere("id IN ? AND role = ?", companyIDs, CompanyRole)
+activate DB
+DB --> Controller: 14. Dados das empresas
+deactivate DB
+
+Controller -> Controller: 15. Montar resposta completa\nRewardResponse com:\n- CompanyName\n- ImageURL (se houver)\n- Dados da vantagem
+
+Controller --> Frontend: 16. HTTP 200\n[{ID, Title, Description, Cost,\nCategory, CompanyName, ImageURL}, ...]
+deactivate Controller
+
+Frontend -> Frontend: 17. Processar e formatar dados
+
+Frontend -> Frontend: 18. Aplicar filtros adicionais no frontend\n(se necessário)
+
+Frontend --> Aluno: 19. Exibir lista de vantagens\ncom cards, filtros e ordenação
+deactivate Frontend
+
+== Busca de Vantagem por ID ==
+
+Aluno -> Frontend: 20. Clica em "Ver Detalhes"
+activate Frontend
+
+Frontend -> Controller: 21. GET /api/rewards/:id
+activate Controller
+
+Controller -> DB: 22. Buscar vantagem\nFirst(&reward, id)
+activate DB
+DB --> Controller: 23. Dados da vantagem
+deactivate DB
+
+Controller -> Controller: 24. Validar se está ativa\nif !reward.Active
+
+Controller -> DB: 25. Buscar empresa\nWhere("id = ? AND role = ?", companyID, CompanyRole)
+activate DB
+DB --> Controller: 26. Dados da empresa
+deactivate DB
+
+Controller -> Controller: 27. Montar resposta com ImageURL\n(se houver imagem)
+
+Controller --> Frontend: 28. HTTP 200\nRewardResponse completo
+deactivate Controller
+
+Frontend --> Aluno: 29. Exibir detalhes da vantagem
+deactivate Frontend
 
 @enduml
 ```
