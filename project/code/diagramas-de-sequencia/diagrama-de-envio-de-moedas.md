@@ -1,92 +1,72 @@
 ```
 @startuml
-title Diagrama de Sequência: Envio de Moedas (Professor para Aluno)
+title Diagrama de Comunicação: Envio de Moedas (Professor para Aluno)
 
-skinparam sequenceArrowThickness 2
-skinparam roundcorner 10
-skinparam maxmessagesize 200
-skinparam sequenceParticipant underline
-autonumber
+skinparam monochrome false
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
 
-actor "Professor" as Prof
-boundary "Frontend\n(Next.js)" as Frontend
-control "TransactionController\n(Go/Gin)" as Controller
-control "TransactionService" as Service
+actor Professor
+participant "Frontend\n(Next.js)" as Frontend
+participant "TransactionController\n(Go/Gin)" as Controller
+participant "TransactionService" as Service
 database "Banco de Dados\n(SQLite)" as DB
-control "NotificationService" as Notification
-control "EmailService\n(gomail)" as Email
-
-note over Prof, Frontend: Professor autenticado e com saldo suficiente
+participant "NotificationService" as Notification
+participant "EmailService\n(gomail)" as Email
 
 == Fluxo Principal ==
 
-Prof -> Frontend: 1. Preenche formulário\n(aluno, quantidade, motivo)
+Professor -> Frontend: 1: Preenche formulário\n(aluno, quantidade, motivo)
 activate Frontend
 
-Frontend -> Frontend: 2. Valida dados do formulário
+Frontend -> Frontend: 2: Valida dados do formulário
 
-Frontend -> Controller: 3. POST /api/professor/give-coins\n{to_student_id, amount, message}
+Frontend -> Controller: 3: POST /api/professor/give-coins\n{to_student_id, amount, message}
 activate Controller
 
-Controller -> Controller: 4. Extrai professorID do token JWT
+Controller -> Controller: 4: Extrai professorID do token JWT
 
-Controller -> DB: 5. Buscar professor e aluno\nFirst(&professor, professorID)\nFirst(&student, toStudentID)
+Controller -> DB: 5: Buscar professor e aluno
 activate DB
-DB --> Controller: 6. Retorna dados do professor e aluno
+DB --> Controller: 6: Retorna dados
 deactivate DB
 
-Controller -> Service: 7. SendCoins(professorID, studentID, amount, message)
+Controller -> Service: 7: SendCoins(professorID, studentID, amount, message)
 activate Service
 
-    Service -> DB: 8. Iniciar transação atômica\nTransaction(func(tx))
-    activate DB
-
-    Service -> DB: 9. Buscar professor com lock\nFirst(&prof, professorID)
-    DB --> Service: 10. Dados do professor
-
-    Service -> Service: 11. Validar saldo\nif prof.Balance < amount
-
-    Service -> Service: 12. Debitar saldo do professor\nprof.Balance -= amount
-
-    Service -> DB: 13. Salvar professor\nSave(&prof)
-    DB --> Service: 14. OK
-
-    Service -> DB: 15. Buscar aluno\nFirst(&stud, studentID)
-    DB --> Service: 16. Dados do aluno
-
-    Service -> Service: 17. Creditar saldo do aluno\nstud.Balance += amount
-
-    Service -> DB: 18. Salvar aluno\nSave(&stud)
-    DB --> Service: 19. OK
-
-    Service -> DB: 20. Criar transação\nCreate(&Transaction{\n  FromUserID, ToUserID,\n  Amount, Message, Type\n})
-    DB --> Service: 21. Transação criada
-
-    Service -> DB: 22. Commit transação
-    deactivate DB
-
-Service --> Controller: 23. Sucesso
+Service -> DB: 8: Iniciar transação atômica
+activate DB
+Service -> DB: 9: Buscar professor com lock
+DB --> Service: 10: Dados do professor
+Service -> Service: 11: Validar saldo
+Service -> Service: 12: Debitar saldo do professor
+Service -> DB: 13: Salvar professor
+Service -> DB: 14: Buscar aluno
+DB --> Service: 15: Dados do aluno
+Service -> Service: 16: Creditar saldo do aluno
+Service -> DB: 17: Salvar aluno
+Service -> DB: 18: Criar transação
+Service -> DB: 19: Commit transação
+deactivate DB
+Service --> Controller: 20: Sucesso
 deactivate Service
 
-Controller -> Notification: 24. Criar notificação para aluno\nCreateNotification(\n  studentID,\n  NotificationTypeReceiveCoins\n)
+Controller -> Notification: 21: CreateNotification(studentID, ...)
 activate Notification
-Notification -> DB: 25. Salvar notificação
-activate DB
-DB --> Notification: 26. Notificação criada
-deactivate DB
+Notification -> DB: 22: Salvar notificação
 deactivate Notification
 
-Controller -> Email: 27. Enviar email ao aluno\n(goroutine assíncrona)
+Controller -> Email: 23: Enviar email (goroutine)
 activate Email
-Email -> Email: 28. TemplateEmailCoinsReceived\n(professorName, amount, message)
-Email -> Email: 29. SendHTMLMailSafe\n(studentEmail, subject, htmlBody)
-note right: Email enviado de forma\nnão-bloqueante
+Email -> Email: 24: TemplateEmailCoinsReceived(...)
+Email -> Email: 25: SendHTMLMailSafe(...)
 deactivate Email
 
-Controller --> Frontend: 30. HTTP 200\n{message: "moedas enviadas"}
+Controller --> Frontend: 26: HTTP 200\n{message: "moedas enviadas"}
 deactivate Controller
 
-Frontend --> Prof: 31. Exibir mensagem de sucesso
+Frontend --> Professor: 27: Exibir mensagem de sucesso
 deactivate Frontend
 
 @enduml
