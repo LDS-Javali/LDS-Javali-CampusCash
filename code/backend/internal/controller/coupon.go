@@ -4,15 +4,11 @@ import (
 	"campuscash-backend/internal/model"
 	"campuscash-backend/internal/service"
 	"campuscash-backend/pkg/mail"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type CouponResponse struct {
@@ -61,9 +57,9 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-func StudentRedeem(db *gorm.DB, notificationSvc *service.NotificationService) gin.HandlerFunc {
+func StudentRedeem(redeemSvc service.RedeemService, db *gorm.DB, notificationSvc *service.NotificationService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.GetUint("userID")
+		studentID := c.GetUint("userID")
 		var in struct {
 			RewardID uint `json:"reward_id" binding:"required"`
 		}
@@ -72,116 +68,77 @@ func StudentRedeem(db *gorm.DB, notificationSvc *service.NotificationService) gi
 			return
 		}
 
-		var rew model.Reward
-		if err := db.First(&rew, in.RewardID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
-			return
-		}
-
-		var studentUser model.User
-		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&studentUser, id).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
-			return
-		}
-		if studentUser.Balance < rew.Cost {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "saldo insuficiente"})
-			return
-		}
-
-		code := fmt.Sprintf("CC-%d-%d", time.Now().UnixNano(), id)
-		
-		// Gerar hash único para o cupom
-		hashInput := fmt.Sprintf("%s-%d-%d-%d", code, rew.ID, studentUser.ID, time.Now().UnixNano())
-		hashBytes := sha256.Sum256([]byte(hashInput))
-		hash := hex.EncodeToString(hashBytes[:])
-		
-		t := model.Transaction{
-			FromUserID: &studentUser.ID,
-			ToUserID:   &rew.CompanyID,
-			Amount:     rew.Cost,
-			Type:       model.RedeemCoins,
-			RewardID:   &rew.ID,
-			CreatedAt:  time.Now(),
-			Code:       &code,
-		}
-		coupon := model.Coupon{
-			RewardID:  rew.ID,
-			StudentID: studentUser.ID,
-			Code:      code,
-			Hash:      hash,
-			Redeemed:  false,
-			CreatedAt: time.Now(),
-		}
-		err := db.Transaction(func(tx *gorm.DB) error {
-			studentUser.Balance -= rew.Cost
-			if err := tx.Save(&studentUser).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&t).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&coupon).Error; err != nil {
-				return err
-			}
-			return nil
-		})
+		// Processar resgate através do service
+		coupon, transaction, err := redeemSvc.RedeemReward(studentID, in.RewardID)
 		if err != nil {
+			// Mapear erros para códigos HTTP apropriados
+			if err.Error() == "vantagem não encontrada" || err.Error() == "aluno não encontrado" {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			if err.Error() == "saldo insuficiente" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Buscar o cupom criado para retornar completo
-		var createdCoupon model.Coupon
-		db.Where("code = ?", code).First(&createdCoupon)
+		// Buscar dados para notificações e emails (assíncrono)
+		var reward model.Reward
+		var studentUser model.User
+		if err := db.First(&reward, in.RewardID).Error; err == nil {
+			if err := db.First(&studentUser, studentID).Error; err == nil {
+				// Criar notificação para o aluno
+				go func() {
+					_ = notificationSvc.CreateNotification(
+						studentUser.ID,
+						model.NotificationTypeRedeem,
+						"Vantagem Resgatada",
+						"Você resgatou a vantagem: "+reward.Title,
+					)
+				}()
 
-		// Criar notificação para o aluno
-		go func() {
-			_ = notificationSvc.CreateNotification(
-				studentUser.ID,
-				model.NotificationTypeRedeem,
-				"Vantagem Resgatada",
-				"Você resgatou a vantagem: "+rew.Title,
-			)
-		}()
+				// Criar notificação para a empresa
+				go func() {
+					_ = notificationSvc.CreateNotification(
+						reward.CompanyID,
+						model.NotificationTypeRedeem,
+						"Novo Resgate",
+						fmt.Sprintf("Aluno %s resgatou a vantagem: %s", studentUser.Name, reward.Title),
+					)
+				}()
 
-		// Criar notificação para a empresa
-		go func() {
-			_ = notificationSvc.CreateNotification(
-				rew.CompanyID,
-				model.NotificationTypeRedeem,
-				"Novo Resgate",
-				fmt.Sprintf("Aluno %s resgatou a vantagem: %s", studentUser.Name, rew.Title),
-			)
-		}()
+				// Enviar emails formatados (dois emails independentes com tratamento de erro)
+				// Email 1: Para o Aluno
+				go func(studentEmail string, rewardTitle string, code string, companyID uint) {
+					var company model.User
+					companyName := "Empresa Parceira"
+					if err := db.First(&company, companyID).Error; err == nil {
+						if company.CompanyName != nil && *company.CompanyName != "" {
+							companyName = *company.CompanyName
+						} else {
+							companyName = company.Name
+						}
+					}
+					subject := fmt.Sprintf("Cupom de Resgate: %s", rewardTitle)
+					htmlBody := mail.TemplateEmailRedeemStudent(rewardTitle, code, companyName)
+					mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
+				}(studentUser.Email, reward.Title, coupon.Code, reward.CompanyID)
 
-		// Enviar emails formatados (dois emails independentes com tratamento de erro)
-		// Email 1: Para o Aluno
-		go func(studentEmail string, rewardTitle string, code string, companyID uint) {
-			var company model.User
-			companyName := "Empresa Parceira"
-			if err := db.First(&company, companyID).Error; err == nil {
-				if company.CompanyName != nil && *company.CompanyName != "" {
-					companyName = *company.CompanyName
-				} else {
-					companyName = company.Name
-				}
+				// Email 2: Para a Empresa
+				go func(companyID uint, studentName string, studentID uint, rewardTitle string, code string) {
+					var company model.User
+					if err := db.First(&company, companyID).Error; err == nil {
+						subject := "Nova troca efetuada!"
+						htmlBody := mail.TemplateEmailRedeemCompany(studentName, rewardTitle, code, studentID)
+						mail.SendHTMLMailSafe(company.Email, subject, htmlBody)
+					}
+				}(reward.CompanyID, studentUser.Name, studentUser.ID, reward.Title, coupon.Code)
 			}
-			subject := fmt.Sprintf("Cupom de Resgate: %s", rewardTitle)
-			htmlBody := mail.TemplateEmailRedeemStudent(rewardTitle, code, companyName)
-			mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
-		}(studentUser.Email, rew.Title, code, rew.CompanyID)
+		}
 
-		// Email 2: Para a Empresa
-		go func(companyID uint, studentName string, studentID uint, rewardTitle string, code string) {
-			var company model.User
-			if err := db.First(&company, companyID).Error; err == nil {
-				subject := "Nova troca efetuada!"
-				htmlBody := mail.TemplateEmailRedeemCompany(studentName, rewardTitle, code, studentID)
-				mail.SendHTMLMailSafe(company.Email, subject, htmlBody)
-			}
-		}(rew.CompanyID, studentUser.Name, studentUser.ID, rew.Title, code)
-
-		c.JSON(http.StatusOK, createdCoupon)
+		c.JSON(http.StatusOK, coupon)
 	}
 }
 
