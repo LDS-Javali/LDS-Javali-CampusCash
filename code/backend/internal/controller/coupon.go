@@ -20,7 +20,7 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		coupons, err := svc.ListStudentCoupons(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "não encontrado"})
+			RespondWithNotFound(c, "não encontrado")
 			return
 		}
 
@@ -53,7 +53,7 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 
-		c.JSON(http.StatusOK, response)
+		RespondWithSuccess(c, response)
 	}
 }
 
@@ -64,23 +64,15 @@ func StudentRedeem(redeemSvc service.RedeemService, db *gorm.DB, notificationSvc
 			RewardID uint `json:"reward_id" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&in); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 
 		// Processar resgate através do service
 		coupon, transaction, err := redeemSvc.RedeemReward(studentID, in.RewardID)
 		if err != nil {
-			// Mapear erros para códigos HTTP apropriados
-			if err.Error() == "vantagem não encontrada" || err.Error() == "aluno não encontrado" {
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-				return
-			}
-			if err.Error() == "saldo insuficiente" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			statusCode := MapErrorToStatusCode(err)
+			c.JSON(statusCode, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -138,7 +130,7 @@ func StudentRedeem(redeemSvc service.RedeemService, db *gorm.DB, notificationSvc
 			}
 		}
 
-		c.JSON(http.StatusOK, coupon)
+		RespondWithSuccess(c, coupon)
 	}
 }
 
@@ -149,7 +141,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 			Hash string `json:"hash"`
 		}
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		
@@ -162,18 +154,18 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 		} else if input.Code != "" {
 			coupon, err = svc.ValidateCoupon(input.Code)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "código ou hash é obrigatório"})
+			RespondWithBadRequest(c, "código ou hash é obrigatório")
 			return
 		}
 		
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "cupom não encontrado"})
+			RespondWithNotFound(c, "cupom não encontrado")
 			return
 		}
 		
 		// Se já foi usado, retornar erro
 		if coupon.Redeemed {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "cupom já foi utilizado"})
+			RespondWithBadRequest(c, "cupom já foi utilizado")
 			return
 		}
 		
@@ -184,7 +176,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 			err = svc.UseCoupon(input.Code)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
 		
@@ -194,7 +186,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 		db.First(&reward, coupon.RewardID)
 		db.First(&student, coupon.StudentID)
 		
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"success": true,
 			"coupon": CouponResponse{
 				Coupon: *coupon,
@@ -213,13 +205,13 @@ func GetCouponByHash(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		hash := c.Param("hash")
 		if hash == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "hash é obrigatório"})
+			RespondWithBadRequest(c, "hash é obrigatório")
 			return
 		}
 		
 		coupon, err := svc.ValidateCouponByHash(hash)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "cupom não encontrado"})
+			RespondWithNotFound(c, "cupom não encontrado")
 			return
 		}
 		
@@ -229,7 +221,7 @@ func GetCouponByHash(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 		db.First(&reward, coupon.RewardID)
 		db.First(&student, coupon.StudentID)
 		
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"coupon": CouponResponse{
 				Coupon: *coupon,
 				Reward: &reward,

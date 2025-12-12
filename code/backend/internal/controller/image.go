@@ -16,24 +16,24 @@ func UploadStudentAvatar(db *gorm.DB, imgSvc *service.ImageService) gin.HandlerF
 
 		imgData, err := imgSvc.ProcessImage(c, "avatar")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to process image: " + err.Error()})
+			RespondWithBadRequest(c, "Failed to process image: "+err.Error())
 			return
 		}
 
 
 		var user model.User
 		if err := db.First(&user, userID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			RespondWithNotFound(c, "User not found")
 			return
 		}
 
 		user.AvatarData = imgData
 		if err := db.Save(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save avatar"})
+			RespondWithInternalError(c, "Failed to save avatar")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"message": "Avatar uploaded successfully",
 			"size":    len(imgData),
 		})
@@ -47,24 +47,24 @@ func UploadCompanyLogo(db *gorm.DB, imgSvc *service.ImageService) gin.HandlerFun
 
 		imgData, err := imgSvc.ProcessImage(c, "logo")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to process image: " + err.Error()})
+			RespondWithBadRequest(c, "Failed to process image: "+err.Error())
 			return
 		}
 
 
 		var user model.User
 		if err := db.First(&user, userID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			RespondWithNotFound(c, "User not found")
 			return
 		}
 
 		user.AvatarData = imgData // Using AvatarData field for company logo too
 		if err := db.Save(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save logo"})
+			RespondWithInternalError(c, "Failed to save logo")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"message": "Logo uploaded successfully",
 			"size":    len(imgData),
 		})
@@ -79,30 +79,30 @@ func UploadRewardImage(db *gorm.DB, imgSvc *service.ImageService) gin.HandlerFun
 
 		imgData, err := imgSvc.ProcessImage(c, "image")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to process image: " + err.Error()})
+			RespondWithBadRequest(c, "Failed to process image: "+err.Error())
 			return
 		}
 
 
 		var reward model.Reward
 		if err := db.First(&reward, rewardID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Reward not found"})
+			RespondWithNotFound(c, "Reward not found")
 			return
 		}
 
 
 		if reward.CompanyID != companyID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to update this reward"})
+			RespondWithForbidden(c, "Not authorized to update this reward")
 			return
 		}
 
 		// Atualizar apenas o campo ImageData
 		if err := db.Model(&reward).Update("ImageData", imgData).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image: " + err.Error()})
+			RespondWithInternalError(c, "Failed to save image: "+err.Error())
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"message": "Image uploaded successfully",
 			"size":    len(imgData),
 		})
@@ -121,7 +121,7 @@ func GetImage(db *gorm.DB) gin.HandlerFunc {
 		case "avatar":
 			var user model.User
 			if err := db.First(&user, imageID).Error; err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				RespondWithNotFound(c, "User not found")
 				return
 			}
 			imgData = user.AvatarData
@@ -130,7 +130,7 @@ func GetImage(db *gorm.DB) gin.HandlerFunc {
 		case "reward":
 			var reward model.Reward
 			if err := db.First(&reward, imageID).Error; err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Reward not found"})
+				RespondWithNotFound(c, "Reward not found")
 				return
 			}
 			imgData = reward.ImageData
@@ -139,12 +139,12 @@ func GetImage(db *gorm.DB) gin.HandlerFunc {
 			contentType = imgSvc.GetImageContentType(imgData)
 			
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid image type"})
+			RespondWithBadRequest(c, "Invalid image type")
 			return
 		}
 
 		if len(imgData) == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No image found"})
+			RespondWithNotFound(c, "No image found")
 			return
 		}
 
