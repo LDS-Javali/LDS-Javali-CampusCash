@@ -24,23 +24,13 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Buscar detalhes das rewards
-		rewardIDs := make(map[uint]bool)
-		for _, coupon := range coupons {
-			rewardIDs[coupon.RewardID] = true
-		}
-
-		rewards := make(map[uint]model.Reward)
-		if len(rewardIDs) > 0 {
-			var ids []uint
-			for id := range rewardIDs {
-				ids = append(ids, id)
-			}
-			var rewardList []model.Reward
-			db.Where("id IN ?", ids).Find(&rewardList)
-			for _, r := range rewardList {
-				rewards[r.ID] = r
-			}
+		// Buscar detalhes das rewards usando DataEnricher
+		enricher := NewDataEnricher(db)
+		rewardIDs := ExtractRewardIDsFromCoupons(coupons)
+		rewards, err := enricher.FetchRelatedRewards(rewardIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar vantagens relacionadas")
+			return
 		}
 
 		// Montar resposta com dados completos

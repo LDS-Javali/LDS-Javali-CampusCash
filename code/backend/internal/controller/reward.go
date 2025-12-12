@@ -223,23 +223,13 @@ func ListRewards(db *gorm.DB) gin.HandlerFunc {
 
 		query.Find(&rewards)
 
-		// Buscar dados das empresas
-		companyIDs := make(map[uint]bool)
-		for _, r := range rewards {
-			companyIDs[r.CompanyID] = true
-		}
-
-		companies := make(map[uint]model.User)
-		if len(companyIDs) > 0 {
-			var ids []uint
-			for id := range companyIDs {
-				ids = append(ids, id)
-			}
-			var companyList []model.User
-			db.Where("id IN ? AND role = ?", ids, model.CompanyRole).Find(&companyList)
-			for _, comp := range companyList {
-				companies[comp.ID] = comp
-			}
+		// Buscar dados das empresas usando DataEnricher
+		enricher := NewDataEnricher(db)
+		companyIDs := ExtractCompanyIDsFromRewards(rewards)
+		companies, err := enricher.FetchRelatedCompanies(companyIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar empresas relacionadas")
+			return
 		}
 
 		// Montar resposta com dados completos

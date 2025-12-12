@@ -131,45 +131,21 @@ func StudentTransactions(db *gorm.DB) gin.HandlerFunc {
 			Offset(offset).
 			Find(&txs)
 
-		// Buscar dados relacionados
-		userIDs := make(map[uint]bool)
-		rewardIDs := make(map[uint]bool)
-		for _, tx := range txs {
-			if tx.FromUserID != nil {
-				userIDs[*tx.FromUserID] = true
-			}
-			if tx.ToUserID != nil {
-				userIDs[*tx.ToUserID] = true
-			}
-			if tx.RewardID != nil {
-				rewardIDs[*tx.RewardID] = true
-			}
+		// Buscar dados relacionados usando DataEnricher
+		enricher := NewDataEnricher(db)
+		
+		userIDs := ExtractUserIDsFromTransactions(txs)
+		users, err := enricher.FetchRelatedUsers(userIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar usuários relacionados")
+			return
 		}
 
-		users := make(map[uint]model.User)
-		if len(userIDs) > 0 {
-			var ids []uint
-			for id := range userIDs {
-				ids = append(ids, id)
-			}
-			var userList []model.User
-			db.Where("id IN ?", ids).Find(&userList)
-			for _, u := range userList {
-				users[u.ID] = u
-			}
-		}
-
-		rewards := make(map[uint]model.Reward)
-		if len(rewardIDs) > 0 {
-			var ids []uint
-			for id := range rewardIDs {
-				ids = append(ids, id)
-			}
-			var rewardList []model.Reward
-			db.Where("id IN ?", ids).Find(&rewardList)
-			for _, r := range rewardList {
-				rewards[r.ID] = r
-			}
+		rewardIDs := ExtractRewardIDsFromTransactions(txs)
+		rewards, err := enricher.FetchRelatedRewards(rewardIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar vantagens relacionadas")
+			return
 		}
 
 		// Montar resposta
