@@ -26,7 +26,7 @@ func SignupAluno(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input SignupStudentInput
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		hash, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
@@ -42,12 +42,12 @@ func SignupAluno(db *gorm.DB) gin.HandlerFunc {
 			Balance:      0,
 		}
 		if err := db.Create(&student).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		// Remove password hash antes de retornar
 		student.PasswordHash = ""
-		c.JSON(http.StatusCreated, student)
+		RespondWithCreated(c, student)
 	}
 }
 
@@ -60,16 +60,16 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input LoginInput
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		var user model.User
 		if err := db.Where("email = ?", input.Email).First(&user).Error; err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "credenciais inválidas"})
+			RespondWithUnauthorized(c, "credenciais inválidas")
 			return
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "credenciais inválidas"})
+			RespondWithUnauthorized(c, "credenciais inválidas")
 			return
 		}
 		claims := jwt.MapClaims{
@@ -80,7 +80,7 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		tokenString, _ := token.SignedString(config.JWTSecret)
 		user.PasswordHash = ""
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"token": tokenString,
 			"user": gin.H{
 				"id":    user.ID,
@@ -97,13 +97,13 @@ func GetMe(db *gorm.DB) gin.HandlerFunc {
 		userID := c.GetUint("userID")
 		var user model.User
 		if err := db.First(&user, userID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado"})
+			RespondWithNotFound(c, "usuário não encontrado")
 			return
 		}
 
 		user.PasswordHash = ""
 
-		c.JSON(http.StatusOK, user)
+		RespondWithSuccess(c, user)
 	}
 }
 
@@ -119,7 +119,7 @@ func SignupCompany(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input SignupCompanyInput
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		pwHash, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
@@ -133,11 +133,11 @@ func SignupCompany(db *gorm.DB) gin.HandlerFunc {
 			Balance:      0,
 		}
 		if err := db.Create(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
 		// Remove password hash antes de retornar
 		user.PasswordHash = ""
-		c.JSON(http.StatusCreated, user)
+		RespondWithCreated(c, user)
 	}
 }

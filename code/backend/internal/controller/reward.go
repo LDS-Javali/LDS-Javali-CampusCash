@@ -24,16 +24,16 @@ func CompanyCreateReward(svc service.RewardService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input dto.RewardCreateDTO
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		input.CompanyID = c.GetUint("userID")
 		reward, err := svc.CreateReward(input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, reward)
+		RespondWithSuccess(c, reward)
 	}
 }
 
@@ -41,7 +41,7 @@ func CompanyRewards(svc service.RewardService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rewards, err := svc.ListCompanyRewards(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
 		
@@ -94,7 +94,7 @@ func CompanyRewards(svc service.RewardService, db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 		
-		c.JSON(http.StatusOK, response)
+		RespondWithSuccess(c, response)
 	}
 }
 
@@ -104,21 +104,21 @@ func CompanyUpdateReward(db *gorm.DB) gin.HandlerFunc {
 		idStr := c.Param("id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ID da vantagem inválido"})
+			RespondWithBadRequest(c, "ID da vantagem inválido")
 			return
 		}
 		var in dto.RewardCreateDTO
 		if err := c.ShouldBindJSON(&in); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		var rew model.Reward
 		if err := db.First(&rew, uint(id)).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
+			RespondWithNotFound(c, "vantagem não encontrada")
 			return
 		}
 		if rew.CompanyID != companyID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "não é o proprietário"})
+			RespondWithForbidden(c, "não é o proprietário")
 			return
 		}
 		rew.Title = in.Title
@@ -127,10 +127,10 @@ func CompanyUpdateReward(db *gorm.DB) gin.HandlerFunc {
 		rew.Category = in.Category
 		rew.Active = true
 		if err := db.Save(&rew).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, rew)
+		RespondWithSuccess(c, rew)
 	}
 }
 
@@ -140,24 +140,24 @@ func CompanyUpdateRewardStatus(db *gorm.DB) gin.HandlerFunc {
 		idStr := c.Param("id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ID da vantagem inválido"})
+			RespondWithBadRequest(c, "ID da vantagem inválido")
 			return
 		}
 		var rew model.Reward
 		if err := db.First(&rew, uint(id)).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
+			RespondWithNotFound(c, "vantagem não encontrada")
 			return
 		}
 		if rew.CompanyID != companyID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "não é o proprietário"})
+			RespondWithForbidden(c, "não é o proprietário")
 			return
 		}
 		rew.Active = !rew.Active
 		if err := db.Save(&rew).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"active": rew.Active})
+		RespondWithSuccess(c, gin.H{"active": rew.Active})
 	}
 }
 
@@ -167,23 +167,23 @@ func CompanyDeleteReward(db *gorm.DB) gin.HandlerFunc {
 		idStr := c.Param("id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ID da vantagem inválido"})
+			RespondWithBadRequest(c, "ID da vantagem inválido")
 			return
 		}
 		var rew model.Reward
 		if err := db.First(&rew, uint(id)).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
+			RespondWithNotFound(c, "vantagem não encontrada")
 			return
 		}
 		if rew.CompanyID != companyID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "não é o proprietário"})
+			RespondWithForbidden(c, "não é o proprietário")
 			return
 		}
 		if err := db.Delete(&rew).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"deleted": true})
+		RespondWithSuccess(c, gin.H{"deleted": true})
 	}
 }
 
@@ -223,23 +223,13 @@ func ListRewards(db *gorm.DB) gin.HandlerFunc {
 
 		query.Find(&rewards)
 
-		// Buscar dados das empresas
-		companyIDs := make(map[uint]bool)
-		for _, r := range rewards {
-			companyIDs[r.CompanyID] = true
-		}
-
-		companies := make(map[uint]model.User)
-		if len(companyIDs) > 0 {
-			var ids []uint
-			for id := range companyIDs {
-				ids = append(ids, id)
-			}
-			var companyList []model.User
-			db.Where("id IN ? AND role = ?", ids, model.CompanyRole).Find(&companyList)
-			for _, comp := range companyList {
-				companies[comp.ID] = comp
-			}
+		// Buscar dados das empresas usando DataEnricher
+		enricher := NewDataEnricher(db)
+		companyIDs := ExtractCompanyIDsFromRewards(rewards)
+		companies, err := enricher.FetchRelatedCompanies(companyIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar empresas relacionadas")
+			return
 		}
 
 		// Montar resposta com dados completos
@@ -262,7 +252,7 @@ func ListRewards(db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 
-		c.JSON(http.StatusOK, response)
+		RespondWithSuccess(c, response)
 	}
 }
 
@@ -271,16 +261,16 @@ func GetRewardById(db *gorm.DB) gin.HandlerFunc {
 		idStr := c.Param("id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ID da vantagem inválido"})
+			RespondWithBadRequest(c, "ID da vantagem inválido")
 			return
 		}
 		var reward model.Reward
 		if err := db.First(&reward, uint(id)).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
+			RespondWithNotFound(c, "vantagem não encontrada")
 			return
 		}
 		if !reward.Active {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
+			RespondWithNotFound(c, "vantagem não encontrada")
 			return
 		}
 
@@ -299,7 +289,7 @@ func GetRewardById(db *gorm.DB) gin.HandlerFunc {
 				imageURL := fmt.Sprintf("%s/api/images/reward/%d", baseURL, reward.ID)
 				resp.ImageURL = &imageURL
 			}
-			c.JSON(http.StatusOK, resp)
+			RespondWithSuccess(c, resp)
 		} else {
 			// Se não encontrar empresa, retornar reward sem dados da empresa
 			resp := RewardResponse{Reward: reward}
@@ -308,7 +298,7 @@ func GetRewardById(db *gorm.DB) gin.HandlerFunc {
 				imageURL := fmt.Sprintf("%s/api/images/reward/%d", baseURL, reward.ID)
 				resp.ImageURL = &imageURL
 			}
-			c.JSON(http.StatusOK, resp)
+			RespondWithSuccess(c, resp)
 		}
 	}
 }

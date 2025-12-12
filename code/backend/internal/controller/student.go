@@ -14,15 +14,15 @@ func RegisterStudent(svc service.StudentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input dto.StudentRegisterDTO
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		student, err := svc.RegisterStudent(input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"id": student.ID})
+		RespondWithSuccess(c, gin.H{"id": student.ID})
 	}
 }
 
@@ -31,10 +31,10 @@ func StudentProfile(svc service.StudentService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		prof, err := svc.GetProfile(id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
+			RespondWithNotFound(c, "aluno não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, prof)
+		RespondWithSuccess(c, prof)
 	}
 }
 
@@ -43,10 +43,10 @@ func StudentBalance(svc service.StudentService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		balance, err := svc.GetBalance(id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
+			RespondWithNotFound(c, "aluno não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, balance)
+		RespondWithSuccess(c, balance)
 	}
 }
 
@@ -55,15 +55,15 @@ func UpdateStudentProfile(svc service.StudentService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		var input dto.StudentUpdateDTO
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		student, err := svc.UpdateProfile(id, input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, student)
+		RespondWithSuccess(c, student)
 	}
 }
 
@@ -72,10 +72,10 @@ func StudentStatistics(svc service.StudentService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		stats, err := svc.GetStatistics(id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
+			RespondWithNotFound(c, "aluno não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, stats)
+		RespondWithSuccess(c, stats)
 	}
 }
 
@@ -83,15 +83,15 @@ func SearchStudents(svc service.StudentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
 		if query == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parâmetro de consulta 'q' é obrigatório"})
+			RespondWithBadRequest(c, "parâmetro de consulta 'q' é obrigatório")
 			return
 		}
 		students, err := svc.SearchStudents(query)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, students)
+		RespondWithSuccess(c, students)
 	}
 }
 
@@ -99,6 +99,6 @@ func ListInstitutions(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var insts []model.Institution
 		db.Find(&insts)
-		c.JSON(http.StatusOK, insts)
+		RespondWithSuccess(c, insts)
 	}
 }

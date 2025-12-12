@@ -14,16 +14,16 @@ func DistributeCoins(cronSvc *service.CronService) gin.HandlerFunc {
 
 		secret := c.GetHeader("X-Cron-Secret")
 		if secret != config.CronSecret {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			RespondWithUnauthorized(c, "Unauthorized")
 			return
 		}
 
 		if err := cronSvc.ManualDistribution(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to distribute coins"})
+			RespondWithInternalError(c, "Failed to distribute coins")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"message": "Coins distributed successfully",
 			"time":    time.Now().Format(time.RFC3339),
 		})

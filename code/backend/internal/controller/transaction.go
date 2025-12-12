@@ -23,7 +23,7 @@ func GiveCoins(db *gorm.DB, notificationSvc *service.NotificationService) gin.Ha
 	return func(c *gin.Context) {
 		var input GiveCoinsInput
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		professorID := c.GetUint("userID")
@@ -31,17 +31,18 @@ func GiveCoins(db *gorm.DB, notificationSvc *service.NotificationService) gin.Ha
 		// Buscar dados do professor e aluno para o email
 		var professor, student model.User
 		if err := db.First(&professor, professorID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "professor não encontrado"})
+			RespondWithNotFound(c, "professor não encontrado")
 			return
 		}
 		if err := db.First(&student, input.ToStudentID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
+			RespondWithNotFound(c, "aluno não encontrado")
 			return
 		}
 		
 		// Usar SendCoins do service para evitar duplicação de lógica
 		if err := service.SendCoins(db, professorID, input.ToStudentID, input.Amount, input.Message); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			statusCode := MapErrorToStatusCode(err)
+			c.JSON(statusCode, gin.H{"error": err.Error()})
 			return
 		}
 		
@@ -62,7 +63,7 @@ func GiveCoins(db *gorm.DB, notificationSvc *service.NotificationService) gin.Ha
 			mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
 		}(professor.Name, student.Email, input.Amount, input.Message)
 		
-		c.JSON(http.StatusOK, gin.H{"message": "moedas enviadas"})
+		RespondWithSuccess(c, gin.H{"message": "moedas enviadas"})
 	}
 }
 
@@ -130,45 +131,21 @@ func StudentTransactions(db *gorm.DB) gin.HandlerFunc {
 			Offset(offset).
 			Find(&txs)
 
-		// Buscar dados relacionados
-		userIDs := make(map[uint]bool)
-		rewardIDs := make(map[uint]bool)
-		for _, tx := range txs {
-			if tx.FromUserID != nil {
-				userIDs[*tx.FromUserID] = true
-			}
-			if tx.ToUserID != nil {
-				userIDs[*tx.ToUserID] = true
-			}
-			if tx.RewardID != nil {
-				rewardIDs[*tx.RewardID] = true
-			}
+		// Buscar dados relacionados usando DataEnricher
+		enricher := NewDataEnricher(db)
+		
+		userIDs := ExtractUserIDsFromTransactions(txs)
+		users, err := enricher.FetchRelatedUsers(userIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar usuários relacionados")
+			return
 		}
 
-		users := make(map[uint]model.User)
-		if len(userIDs) > 0 {
-			var ids []uint
-			for id := range userIDs {
-				ids = append(ids, id)
-			}
-			var userList []model.User
-			db.Where("id IN ?", ids).Find(&userList)
-			for _, u := range userList {
-				users[u.ID] = u
-			}
-		}
-
-		rewards := make(map[uint]model.Reward)
-		if len(rewardIDs) > 0 {
-			var ids []uint
-			for id := range rewardIDs {
-				ids = append(ids, id)
-			}
-			var rewardList []model.Reward
-			db.Where("id IN ?", ids).Find(&rewardList)
-			for _, r := range rewardList {
-				rewards[r.ID] = r
-			}
+		rewardIDs := ExtractRewardIDsFromTransactions(txs)
+		rewards, err := enricher.FetchRelatedRewards(rewardIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar vantagens relacionadas")
+			return
 		}
 
 		// Montar resposta
@@ -205,7 +182,7 @@ func StudentTransactions(db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"transactions": response,
 			"total":        total,
 			"limit":        limit,

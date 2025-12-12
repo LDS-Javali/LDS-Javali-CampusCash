@@ -4,15 +4,11 @@ import (
 	"campuscash-backend/internal/model"
 	"campuscash-backend/internal/service"
 	"campuscash-backend/pkg/mail"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type CouponResponse struct {
@@ -24,27 +20,17 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		coupons, err := svc.ListStudentCoupons(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "não encontrado"})
+			RespondWithNotFound(c, "não encontrado")
 			return
 		}
 
-		// Buscar detalhes das rewards
-		rewardIDs := make(map[uint]bool)
-		for _, coupon := range coupons {
-			rewardIDs[coupon.RewardID] = true
-		}
-
-		rewards := make(map[uint]model.Reward)
-		if len(rewardIDs) > 0 {
-			var ids []uint
-			for id := range rewardIDs {
-				ids = append(ids, id)
-			}
-			var rewardList []model.Reward
-			db.Where("id IN ?", ids).Find(&rewardList)
-			for _, r := range rewardList {
-				rewards[r.ID] = r
-			}
+		// Buscar detalhes das rewards usando DataEnricher
+		enricher := NewDataEnricher(db)
+		rewardIDs := ExtractRewardIDsFromCoupons(coupons)
+		rewards, err := enricher.FetchRelatedRewards(rewardIDs)
+		if err != nil {
+			RespondWithInternalError(c, "erro ao buscar vantagens relacionadas")
+			return
 		}
 
 		// Montar resposta com dados completos
@@ -57,131 +43,84 @@ func StudentCoupons(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 
-		c.JSON(http.StatusOK, response)
+		RespondWithSuccess(c, response)
 	}
 }
 
-func StudentRedeem(db *gorm.DB, notificationSvc *service.NotificationService) gin.HandlerFunc {
+func StudentRedeem(redeemSvc service.RedeemService, db *gorm.DB, notificationSvc *service.NotificationService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.GetUint("userID")
+		studentID := c.GetUint("userID")
 		var in struct {
 			RewardID uint `json:"reward_id" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&in); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 
-		var rew model.Reward
-		if err := db.First(&rew, in.RewardID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "vantagem não encontrada"})
-			return
-		}
-
-		var studentUser model.User
-		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&studentUser, id).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "aluno não encontrado"})
-			return
-		}
-		if studentUser.Balance < rew.Cost {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "saldo insuficiente"})
-			return
-		}
-
-		code := fmt.Sprintf("CC-%d-%d", time.Now().UnixNano(), id)
-		
-		// Gerar hash único para o cupom
-		hashInput := fmt.Sprintf("%s-%d-%d-%d", code, rew.ID, studentUser.ID, time.Now().UnixNano())
-		hashBytes := sha256.Sum256([]byte(hashInput))
-		hash := hex.EncodeToString(hashBytes[:])
-		
-		t := model.Transaction{
-			FromUserID: &studentUser.ID,
-			ToUserID:   &rew.CompanyID,
-			Amount:     rew.Cost,
-			Type:       model.RedeemCoins,
-			RewardID:   &rew.ID,
-			CreatedAt:  time.Now(),
-			Code:       &code,
-		}
-		coupon := model.Coupon{
-			RewardID:  rew.ID,
-			StudentID: studentUser.ID,
-			Code:      code,
-			Hash:      hash,
-			Redeemed:  false,
-			CreatedAt: time.Now(),
-		}
-		err := db.Transaction(func(tx *gorm.DB) error {
-			studentUser.Balance -= rew.Cost
-			if err := tx.Save(&studentUser).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&t).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&coupon).Error; err != nil {
-				return err
-			}
-			return nil
-		})
+		// Processar resgate através do service
+		coupon, transaction, err := redeemSvc.RedeemReward(studentID, in.RewardID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			statusCode := MapErrorToStatusCode(err)
+			c.JSON(statusCode, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Buscar o cupom criado para retornar completo
-		var createdCoupon model.Coupon
-		db.Where("code = ?", code).First(&createdCoupon)
+		// Buscar dados para notificações e emails (assíncrono)
+		var reward model.Reward
+		var studentUser model.User
+		if err := db.First(&reward, in.RewardID).Error; err == nil {
+			if err := db.First(&studentUser, studentID).Error; err == nil {
+				// Criar notificação para o aluno
+				go func() {
+					_ = notificationSvc.CreateNotification(
+						studentUser.ID,
+						model.NotificationTypeRedeem,
+						"Vantagem Resgatada",
+						"Você resgatou a vantagem: "+reward.Title,
+					)
+				}()
 
-		// Criar notificação para o aluno
-		go func() {
-			_ = notificationSvc.CreateNotification(
-				studentUser.ID,
-				model.NotificationTypeRedeem,
-				"Vantagem Resgatada",
-				"Você resgatou a vantagem: "+rew.Title,
-			)
-		}()
+				// Criar notificação para a empresa
+				go func() {
+					_ = notificationSvc.CreateNotification(
+						reward.CompanyID,
+						model.NotificationTypeRedeem,
+						"Novo Resgate",
+						fmt.Sprintf("Aluno %s resgatou a vantagem: %s", studentUser.Name, reward.Title),
+					)
+				}()
 
-		// Criar notificação para a empresa
-		go func() {
-			_ = notificationSvc.CreateNotification(
-				rew.CompanyID,
-				model.NotificationTypeRedeem,
-				"Novo Resgate",
-				fmt.Sprintf("Aluno %s resgatou a vantagem: %s", studentUser.Name, rew.Title),
-			)
-		}()
+				// Enviar emails formatados (dois emails independentes com tratamento de erro)
+				// Email 1: Para o Aluno
+				go func(studentEmail string, rewardTitle string, code string, companyID uint) {
+					var company model.User
+					companyName := "Empresa Parceira"
+					if err := db.First(&company, companyID).Error; err == nil {
+						if company.CompanyName != nil && *company.CompanyName != "" {
+							companyName = *company.CompanyName
+						} else {
+							companyName = company.Name
+						}
+					}
+					subject := fmt.Sprintf("Cupom de Resgate: %s", rewardTitle)
+					htmlBody := mail.TemplateEmailRedeemStudent(rewardTitle, code, companyName)
+					mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
+				}(studentUser.Email, reward.Title, coupon.Code, reward.CompanyID)
 
-		// Enviar emails formatados (dois emails independentes com tratamento de erro)
-		// Email 1: Para o Aluno
-		go func(studentEmail string, rewardTitle string, code string, companyID uint) {
-			var company model.User
-			companyName := "Empresa Parceira"
-			if err := db.First(&company, companyID).Error; err == nil {
-				if company.CompanyName != nil && *company.CompanyName != "" {
-					companyName = *company.CompanyName
-				} else {
-					companyName = company.Name
-				}
+				// Email 2: Para a Empresa
+				go func(companyID uint, studentName string, studentID uint, rewardTitle string, code string) {
+					var company model.User
+					if err := db.First(&company, companyID).Error; err == nil {
+						subject := "Nova troca efetuada!"
+						htmlBody := mail.TemplateEmailRedeemCompany(studentName, rewardTitle, code, studentID)
+						mail.SendHTMLMailSafe(company.Email, subject, htmlBody)
+					}
+				}(reward.CompanyID, studentUser.Name, studentUser.ID, reward.Title, coupon.Code)
 			}
-			subject := fmt.Sprintf("Cupom de Resgate: %s", rewardTitle)
-			htmlBody := mail.TemplateEmailRedeemStudent(rewardTitle, code, companyName)
-			mail.SendHTMLMailSafe(studentEmail, subject, htmlBody)
-		}(studentUser.Email, rew.Title, code, rew.CompanyID)
+		}
 
-		// Email 2: Para a Empresa
-		go func(companyID uint, studentName string, studentID uint, rewardTitle string, code string) {
-			var company model.User
-			if err := db.First(&company, companyID).Error; err == nil {
-				subject := "Nova troca efetuada!"
-				htmlBody := mail.TemplateEmailRedeemCompany(studentName, rewardTitle, code, studentID)
-				mail.SendHTMLMailSafe(company.Email, subject, htmlBody)
-			}
-		}(rew.CompanyID, studentUser.Name, studentUser.ID, rew.Title, code)
-
-		c.JSON(http.StatusOK, createdCoupon)
+		RespondWithSuccess(c, coupon)
 	}
 }
 
@@ -192,7 +131,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 			Hash string `json:"hash"`
 		}
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		
@@ -205,18 +144,18 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 		} else if input.Code != "" {
 			coupon, err = svc.ValidateCoupon(input.Code)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "código ou hash é obrigatório"})
+			RespondWithBadRequest(c, "código ou hash é obrigatório")
 			return
 		}
 		
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "cupom não encontrado"})
+			RespondWithNotFound(c, "cupom não encontrado")
 			return
 		}
 		
 		// Se já foi usado, retornar erro
 		if coupon.Redeemed {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "cupom já foi utilizado"})
+			RespondWithBadRequest(c, "cupom já foi utilizado")
 			return
 		}
 		
@@ -227,7 +166,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 			err = svc.UseCoupon(input.Code)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
 		
@@ -237,7 +176,7 @@ func CompanyValidateCoupon(svc service.CouponService, db *gorm.DB) gin.HandlerFu
 		db.First(&reward, coupon.RewardID)
 		db.First(&student, coupon.StudentID)
 		
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"success": true,
 			"coupon": CouponResponse{
 				Coupon: *coupon,
@@ -256,13 +195,13 @@ func GetCouponByHash(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		hash := c.Param("hash")
 		if hash == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "hash é obrigatório"})
+			RespondWithBadRequest(c, "hash é obrigatório")
 			return
 		}
 		
 		coupon, err := svc.ValidateCouponByHash(hash)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "cupom não encontrado"})
+			RespondWithNotFound(c, "cupom não encontrado")
 			return
 		}
 		
@@ -272,7 +211,7 @@ func GetCouponByHash(svc service.CouponService, db *gorm.DB) gin.HandlerFunc {
 		db.First(&reward, coupon.RewardID)
 		db.First(&student, coupon.StudentID)
 		
-		c.JSON(http.StatusOK, gin.H{
+		RespondWithSuccess(c, gin.H{
 			"coupon": CouponResponse{
 				Coupon: *coupon,
 				Reward: &reward,

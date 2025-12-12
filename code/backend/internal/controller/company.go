@@ -14,10 +14,10 @@ func CompanyProfile(svc service.CompanyService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		profile, err := svc.GetProfile(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "empresa não encontrada"})
+			RespondWithNotFound(c, "empresa não encontrada")
 			return
 		}
-		c.JSON(http.StatusOK, profile)
+		RespondWithSuccess(c, profile)
 	}
 }
 
@@ -26,15 +26,15 @@ func UpdateCompanyProfile(svc service.CompanyService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		var input dto.CompanyUpdateDTO
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		company, err := svc.UpdateProfile(id, input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, company)
+		RespondWithSuccess(c, company)
 	}
 }
 
@@ -43,10 +43,10 @@ func CompanyStatistics(svc service.CompanyService, db *gorm.DB) gin.HandlerFunc 
 		id := c.GetUint("userID")
 		stats, err := svc.GetStatistics(id, db)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "empresa não encontrada"})
+			RespondWithNotFound(c, "empresa não encontrada")
 			return
 		}
-		c.JSON(http.StatusOK, stats)
+		RespondWithSuccess(c, stats)
 	}
 }
 
@@ -55,10 +55,10 @@ func CompanyValidations(svc service.CompanyService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		validations, err := svc.GetValidations(id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, validations)
+		RespondWithSuccess(c, validations)
 	}
 }
 
@@ -102,6 +102,6 @@ func CompanyHistory(db *gorm.DB) gin.HandlerFunc {
 			response[i] = resp
 		}
 
-		c.JSON(http.StatusOK, response)
+		RespondWithSuccess(c, response)
 	}
 }

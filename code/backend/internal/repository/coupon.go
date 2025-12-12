@@ -11,6 +11,7 @@ type CouponRepository interface {
 	FindByCode(code string) (*model.Coupon, error)
 	FindByHash(hash string) (*model.Coupon, error)
 	Save(coupon *model.Coupon) error
+	Create(coupon *model.Coupon) error
 }
 
 type couponRepository struct {
@@ -40,4 +41,8 @@ func (r *couponRepository) FindByHash(hash string) (*model.Coupon, error) {
 }
 func (r *couponRepository) Save(coupon *model.Coupon) error {
 	return r.db.Save(coupon).Error
+}
+
+func (r *couponRepository) Create(coupon *model.Coupon) error {
+	return r.db.Create(coupon).Error
 }

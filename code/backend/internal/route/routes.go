@@ -25,6 +25,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	companySvc := service.NewCompanyService(companyRepo)
 	imgSvc := service.NewImageService()
 	notificationSvc := service.NewNotificationService(notificationRepo)
+	redeemSvc := service.NewRedeemService(db, couponRepo, rewardRepo, studentRepo, notificationSvc)
 	cronSvc := service.NewCronService(db, notificationSvc)
 
 	r.POST("/api/auth/login", controller.Login(db))
@@ -52,7 +53,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 
 
 
-		student.POST("/redeem", controller.StudentRedeem(db, notificationSvc))
+		student.POST("/redeem", controller.StudentRedeem(redeemSvc, db, notificationSvc))
 
 		student.GET("/coupons", controller.StudentCoupons(couponSvc, db))
 		student.GET("/notifications", controller.ListNotifications(notificationSvc))

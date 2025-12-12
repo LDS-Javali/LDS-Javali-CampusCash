@@ -13,10 +13,10 @@ func ProfessorProfile(svc service.ProfessorService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		prof, err := svc.GetProfile(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "professor não encontrado"})
+			RespondWithNotFound(c, "professor não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, prof)
+		RespondWithSuccess(c, prof)
 	}
 }
 
@@ -24,10 +24,10 @@ func ProfessorBalance(svc service.ProfessorService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		balance, err := svc.GetBalance(c.GetUint("userID"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "não encontrado"})
+			RespondWithNotFound(c, "não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"saldoMoedas": balance})
+		RespondWithSuccess(c, gin.H{"saldoMoedas": balance})
 	}
 }
 
@@ -36,13 +36,13 @@ func ProfessorStudents(svc service.ProfessorService) gin.HandlerFunc {
 		students, err := svc.ListStudents(c.GetUint("userID"))
 		if err != nil {
 			// Se der erro, retornar array vazio em vez de 500
-			c.JSON(http.StatusOK, []model.User{})
+			RespondWithSuccess(c, []model.User{})
 			return
 		}
 		if students == nil {
 			students = []model.User{}
 		}
-		c.JSON(http.StatusOK, students)
+		RespondWithSuccess(c, students)
 	}
 }
 
@@ -51,15 +51,15 @@ func UpdateProfessorProfile(svc service.ProfessorService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		var input dto.ProfessorUpdateDTO
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			RespondWithBadRequest(c, err.Error())
 			return
 		}
 		professor, err := svc.UpdateProfile(id, input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			RespondWithError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, professor)
+		RespondWithSuccess(c, professor)
 	}
 }
 
@@ -68,9 +68,9 @@ func ProfessorStatistics(svc service.ProfessorService) gin.HandlerFunc {
 		id := c.GetUint("userID")
 		stats, err := svc.GetStatistics(id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "professor não encontrado"})
+			RespondWithNotFound(c, "professor não encontrado")
 			return
 		}
-		c.JSON(http.StatusOK, stats)
+		RespondWithSuccess(c, stats)
 	}
 }
